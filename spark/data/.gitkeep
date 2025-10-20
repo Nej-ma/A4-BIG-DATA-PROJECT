@@ -1,0 +1,5 @@
+# Dossier pour données Spark temporaires
+
+Ce dossier peut contenir des fichiers de données temporaires pour vos tests Spark.
+
+⚠️ Ne pas commiter de données sensibles (voir .gitignore)

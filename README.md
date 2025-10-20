@@ -92,25 +92,29 @@ Tous les services doivent être **Up** (sauf worker Spark - non utilisé).
 
 ## 🗄️ Données de Départ
 
-### ⚠️ IMPORTANT : Ajoutez vos données
+### Données de test incluses
 
-**Avant de lancer la stack**, placez votre dossier `DATA_2024` dans le dossier `data/` :
+Le projet inclut un jeu de données **fictives et réalistes** pour le CHU :
 
-```
-projet_git/
-└── data/
-    └── DATA_2024/          ← Votre dossier avec les données
-        ├── patient.csv
-        ├── consultation.csv
-        ├── professionnel_de_sante.csv
-        └── ...
-```
+**Tables de dimension** :
+- 100 patients avec PII (pour tester RGPD)
+- 20 médecins avec spécialités
+- 8 services hospitaliers
+- 30 médicaments
 
-Voir [data/README.md](data/README.md) pour les instructions détaillées.
+**Tables de faits** :
+- 108 consultations (2023-2024)
+- 50 hospitalisations
+- 65 prescriptions
+- 94 actes médicaux
+
+**Total : 357 enregistrements** prêts pour l'analyse.
 
 ### Initialisation automatique
 
-PostgreSQL chargera automatiquement vos données au premier lancement si vous incluez des fichiers `.sql` dans `data/DATA_2024/`
+PostgreSQL charge automatiquement les données au premier lancement via les scripts SQL dans `data/`
+
+📖 **Voir [data/README.md](data/README.md) pour plus de détails.**
 
 ---
 
@@ -288,10 +292,12 @@ Si tu as déjà des services sur les mêmes ports :
 
 ### PostgreSQL n'a pas de données
 
-Vérifiez que :
-1. Votre dossier `DATA_2024` est bien dans `data/`
-2. Les fichiers SQL ou CSV sont présents
-3. Vous avez bien lancé `docker-compose up --build -d`
+Vérifiez que les scripts SQL sont bien dans `data/` :
+
+```bash
+ls data/
+# Doit afficher : 01_init_schema.sql  02_seed_data.sql  03_seed_transactions.sql
+```
 
 Si vous devez recharger les données :
 
@@ -299,7 +305,7 @@ Si vous devez recharger les données :
 # Stopper et supprimer les volumes
 docker-compose down -v
 
-# Relancer (rechargera depuis data/DATA_2024)
+# Relancer (rechargera depuis data/)
 docker-compose up --build -d
 ```
 

@@ -15,7 +15,7 @@
 *.xls
 
 # Données de production (à exclure absolument)
-data/
+data/DATA 2024
 datasets/
 raw_data/
 processed_data/
