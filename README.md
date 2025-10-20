@@ -1,0 +1,382 @@
+# 🏥 CHU Data Lakehouse - Projet Big Data
+
+**Cloud Healthcare Unit - Delta Lake Architecture**
+
+CESI FISA A4 - Livrable 2
+
+## 👥 Équipe
+
+- **Nejma MOUALHI**
+- **Brieuc OLIVIERI**
+- **Nicolas TAING**
+
+---
+
+## 🚀 Quick Start (3 étapes)
+
+### 1. Clone le projet
+
+```bash
+git clone <votre-repo-url>
+cd projet_git
+```
+
+### 2. Lance la stack complète
+
+```bash
+docker-compose up --build -d
+```
+
+**Attends 2-3 minutes** que tous les services démarrent.
+
+### 3. Vérifie que tout fonctionne
+
+```bash
+docker-compose ps
+```
+
+Tous les services doivent être **Up** (sauf worker Spark - non utilisé).
+
+---
+
+## 🌐 Services et Accès
+
+| Service | URL | Login | Mot de passe | Rôle |
+|---------|-----|-------|--------------|------|
+| **Airflow** | http://localhost:8080 | admin | admin123 | Orchestration ETL |
+| **Jupyter Lab** | http://localhost:8888 | - | token: admin123 | Développement PySpark |
+| **MinIO Console** | http://localhost:9001 | minioadmin | minioadmin123 | Stockage S3 (Delta Lake) |
+| **Spark Master UI** | http://localhost:8081 | - | - | Monitoring Spark |
+| **Superset** | http://localhost:8088 | admin | admin123 | Visualisation BI |
+| **pgAdmin** | http://localhost:5050 | admin@chu.fr | admin123 | Admin PostgreSQL |
+| **PostgreSQL** | localhost:5432 | admin | admin123 | Base de données source |
+
+---
+
+## 📁 Architecture Delta Lake
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                 DATA LAKEHOUSE CHU - DELTA LAKE             │
+├─────────────────────────────────────────────────────────────┤
+│                                                              │
+│  PostgreSQL (sources) ──┐                                   │
+│                         │                                   │
+│                         ▼                                   │
+│                    ┌─────────┐                              │
+│                    │ Airflow │  (Orchestration ETL)         │
+│                    └────┬────┘                              │
+│                         │                                   │
+│                         ▼                                   │
+│            ┌────────────────────────────┐                   │
+│            │   MinIO S3 (Delta Lake)    │                   │
+│            ├────────────────────────────┤                   │
+│            │  📦 lakehouse/             │                   │
+│            │    ├─ bronze/  (raw)       │                   │
+│            │    ├─ silver/  (T1 RGPD)   │                   │
+│            │    └─ gold/    (T2 DWH)    │                   │
+│            └────────────────────────────┘                   │
+│                         │                                   │
+│        ┌────────────────┴────────────────┐                 │
+│        ▼                                  ▼                 │
+│  ┌──────────────┐                  ┌─────────┐             │
+│  │ Jupyter Lab  │                  │ Superset│             │
+│  │  + PySpark   │                  │   BI    │             │
+│  │ (Analytics)  │                  │(Dashbds)│             │
+│  └──────────────┘                  └─────────┘             │
+│                                                              │
+└─────────────────────────────────────────────────────────────┘
+```
+
+---
+
+## 🗄️ Données de Départ
+
+### ⚠️ IMPORTANT : Ajoutez vos données
+
+**Avant de lancer la stack**, placez votre dossier `DATA_2024` dans le dossier `data/` :
+
+```
+projet_git/
+└── data/
+    └── DATA_2024/          ← Votre dossier avec les données
+        ├── patient.csv
+        ├── consultation.csv
+        ├── professionnel_de_sante.csv
+        └── ...
+```
+
+Voir [data/README.md](data/README.md) pour les instructions détaillées.
+
+### Initialisation automatique
+
+PostgreSQL chargera automatiquement vos données au premier lancement si vous incluez des fichiers `.sql` dans `data/DATA_2024/`
+
+---
+
+## 🎯 Workflow Livrable 2
+
+### Étape 1 : Développer dans Jupyter Lab
+
+1. Ouvre **Jupyter Lab** : http://localhost:8888 (token: `admin123`)
+2. Crée un nouveau notebook dans `notebooks/`
+3. Utilise PySpark avec Delta Lake :
+
+```python
+from pyspark.sql import SparkSession
+from delta import *
+
+# Session Spark avec Delta Lake
+builder = SparkSession.builder.appName("CHU ETL") \
+    .config("spark.sql.extensions", "io.delta.sql.DeltaSparkSessionExtension") \
+    .config("spark.sql.catalog.spark_catalog", "org.apache.spark.sql.delta.catalog.DeltaCatalog") \
+    .config("spark.hadoop.fs.s3a.endpoint", "http://chu_minio:9000") \
+    .config("spark.hadoop.fs.s3a.access.key", "minioadmin") \
+    .config("spark.hadoop.fs.s3a.secret.key", "minioadmin123") \
+    .config("spark.hadoop.fs.s3a.path.style.access", "true") \
+    .config("spark.hadoop.fs.s3a.impl", "org.apache.hadoop.fs.s3a.S3AFileSystem")
+
+spark = configure_spark_with_delta_pip(builder).getOrCreate()
+
+# Lire depuis PostgreSQL
+df = spark.read.jdbc(
+    url="jdbc:postgresql://chu_postgres:5432/healthcare_data",
+    table='"Patient"',
+    properties={"user": "admin", "password": "admin123"}
+)
+
+# Écrire en Delta Lake (Bronze)
+df.write.format("delta").mode("overwrite").save("s3a://lakehouse/bronze/patient")
+
+# Lire depuis Delta Lake
+df_delta = spark.read.format("delta").load("s3a://lakehouse/bronze/patient")
+df_delta.show(5)
+```
+
+### Étape 2 : Créer les transformations T1 et T2
+
+**T1 (Bronze → Silver) : RGPD - Pseudonymisation**
+- Anonymiser les données PII (SHA-256)
+- Calculer l'âge à partir de la date de naissance
+- Supprimer les colonnes sensibles
+
+**T2 (Silver → Gold) : Modèle dimensionnel**
+- Créer les dimensions dénormalisées
+- Enrichir les faits avec les dimensions
+- Calculer les métriques agrégées
+
+### Étape 3 : Orchestrer avec Airflow
+
+1. Crée ton DAG dans `airflow/dags/`
+2. Ouvre **Airflow UI** : http://localhost:8080 (admin / admin123)
+3. Active ton DAG
+4. Trigger manuellement
+5. Vérifie les logs d'exécution
+
+Exemple DAG fourni : `airflow/dags/exemple_delta_lake.py`
+
+### Étape 4 : Vérifier dans MinIO
+
+1. Ouvre **MinIO Console** : http://localhost:9001 (minioadmin / minioadmin123)
+2. Browse `lakehouse/bronze/`, `silver/`, `gold/`
+3. Vérifie la présence des fichiers Parquet et `_delta_log/`
+
+### Étape 5 : Visualiser avec Superset
+
+1. Ouvre **Superset** : http://localhost:8088 (admin / admin123)
+2. Connecte-toi à PostgreSQL ou aux données Gold
+3. Crée tes dashboards
+
+---
+
+## 🛠️ Stack Technique
+
+| Composant | Version | Rôle |
+|-----------|---------|------|
+| **Apache Airflow** | 2.8.1 | Orchestration ETL |
+| **Delta Lake** | 2.4.0 | Lakehouse ACID + versioning |
+| **Apache Spark** | 3.4.0 | Moteur distribué |
+| **PySpark** | 3.4.0 | API Python Spark |
+| **MinIO** | latest | Stockage S3-compatible |
+| **PostgreSQL** | 15-alpine | Base source |
+| **Jupyter Lab** | latest | Développement |
+| **Apache Superset** | latest | Visualisation BI |
+
+---
+
+## 🔧 Commandes Utiles
+
+### Voir les logs d'un service
+
+```bash
+docker logs chu_airflow_webserver -f
+docker logs chu_jupyter -f
+docker logs chu_postgres -f
+```
+
+### Redémarrer un service
+
+```bash
+docker-compose restart airflow-webserver
+docker-compose restart jupyter
+```
+
+### Arrêter tout
+
+```bash
+docker-compose down
+```
+
+### Tout supprimer et recommencer (⚠️ PERTE DE DONNÉES)
+
+```bash
+docker-compose down -v
+docker-compose up --build -d
+```
+
+### Vérifier l'état des services
+
+```bash
+docker-compose ps
+```
+
+### Exécuter une commande SQL dans PostgreSQL
+
+```bash
+docker exec -it chu_postgres psql -U admin -d healthcare_data
+```
+
+### Tester Delta Lake dans Jupyter
+
+```bash
+docker exec -it chu_jupyter python3 -c "from delta import *; print('✅ Delta Lake OK')"
+```
+
+---
+
+## ❓ Problèmes Fréquents
+
+### Airflow ne démarre pas
+
+```bash
+# Vérifie les logs
+docker logs chu_airflow_init
+
+# Redémarre
+docker-compose restart airflow-webserver airflow-scheduler
+```
+
+### MinIO buckets n'existent pas
+
+Les buckets sont créés automatiquement par `chu_minio_setup`.
+
+Si problème :
+1. Va sur http://localhost:9001
+2. Créé manuellement `lakehouse` et `warehouse`
+
+### Jupyter ne se connecte pas à MinIO
+
+Vérifie le hostname dans ton code :
+- ✅ `http://chu_minio:9000` (dans Docker)
+- ❌ `http://localhost:9000` (ne marche pas)
+
+### Port déjà utilisé
+
+Si tu as déjà des services sur les mêmes ports :
+1. Arrête les anciens services
+2. Ou modifie les ports dans `docker-compose.yml`
+
+### PostgreSQL n'a pas de données
+
+Vérifiez que :
+1. Votre dossier `DATA_2024` est bien dans `data/`
+2. Les fichiers SQL ou CSV sont présents
+3. Vous avez bien lancé `docker-compose up --build -d`
+
+Si vous devez recharger les données :
+
+```bash
+# Stopper et supprimer les volumes
+docker-compose down -v
+
+# Relancer (rechargera depuis data/DATA_2024)
+docker-compose up --build -d
+```
+
+---
+
+## 📚 Documentation Complémentaire
+
+- **Guide Équipe** : [GUIDE_EQUIPE.md](GUIDE_EQUIPE.md) - Onboarding complet pas à pas
+- **Données** : [data/README.md](data/README.md) - Instructions pour ajouter vos données
+
+---
+
+## ⚠️ Sécurité et RGPD
+
+### Données sensibles
+
+Ce projet contient des **données PII de patients** (nom, prénom, NSS, adresse, etc.).
+
+**Important** :
+- ✅ Les données sont **fictives** (générées pour le projet)
+- ⚠️ Ne jamais utiliser de vraies données patients
+- 🔒 Le `.gitignore` empêche le commit de fichiers sensibles (CSV, Parquet, volumes Docker)
+
+### Pseudonymisation (T1)
+
+La transformation T1 doit pseudonymiser :
+- `nom` → SHA-256
+- `prenom` → SHA-256
+- `numero_securite_sociale` → SHA-256
+- `adresse`, `telephone`, `email` → Supprimés
+
+**Exemple** :
+
+```python
+from pyspark.sql.functions import sha2, concat_ws
+
+df_silver = df_bronze.withColumn(
+    "nom_hash", sha2(concat_ws("_", col("nom"), lit("salt_secret")), 256)
+).drop("nom", "prenom", "numero_securite_sociale", "adresse", "telephone", "email")
+```
+
+---
+
+## ✅ Checklist Livrable 2
+
+- [ ] Stack complète opérationnelle (tous les services UP)
+- [ ] Connexion PostgreSQL → Jupyter Lab validée
+- [ ] Écriture en Delta Lake Bronze validée
+- [ ] Transformation T1 (RGPD) implémentée
+- [ ] Transformation T2 (DWH) implémentée
+- [ ] DAG Airflow fonctionnel (Bronze → Silver → Gold)
+- [ ] Données visibles dans MinIO (3 zones)
+- [ ] Dashboard Superset créé
+- [ ] Documentation complétée
+- [ ] Code versionné sur Git
+
+---
+
+## 🎓 Objectifs Pédagogiques
+
+1. **Data Lakehouse** : Comprendre l'architecture Bronze/Silver/Gold
+2. **Delta Lake** : ACID, versioning, time travel
+3. **RGPD** : Pseudonymisation et protection des PII
+4. **ETL/ELT** : Orchestration avec Airflow
+5. **Big Data** : PySpark pour traiter des volumétries importantes
+6. **BI** : Visualisation des données de santé
+
+---
+
+## 📞 Support
+
+En cas de problème :
+1. Vérifie les logs : `docker logs <container_name>`
+2. Consulte la section **Problèmes Fréquents**
+3. Redémarre le service concerné
+4. En dernier recours : `docker-compose down -v && docker-compose up --build -d`
+
+---
+
+**Bon courage pour le Livrable 2 ! 💪**

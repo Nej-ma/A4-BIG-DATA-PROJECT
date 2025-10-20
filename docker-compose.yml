@@ -1,0 +1,369 @@
+# ============================================================
+# DOCKER COMPOSE - DATA LAKEHOUSE CHU
+# ============================================================
+# Projet Big Data - Cloud Healthcare Unit
+# Architecture : Data Lakehouse (Delta Lake + Spark + MinIO)
+#
+# Auteurs : Nejma MOUALHI | Brieuc OLIVIERI | Nicolas TAING
+# Formation : CESI FISA A4
+# Année : 2025-2026
+# ============================================================
+
+# version: '3.8'  # Obsolete, retiré
+
+networks:
+  chu_network:
+    driver: bridge
+
+volumes:
+  postgres_data:
+  minio_data:
+  spark_logs:
+
+# ============================================================
+# SERVICES
+# ============================================================
+
+services:
+
+  # ----------------------------------------------------------
+  # POSTGRESQL - Base de données sources (opérationnelle)
+  # ----------------------------------------------------------
+  postgres:
+    image: postgres:15-alpine
+    container_name: chu_postgres
+    environment:
+      POSTGRES_USER: admin
+      POSTGRES_PASSWORD: admin123
+      POSTGRES_DB: healthcare_data
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./data/DATA_2024:/docker-entrypoint-initdb.d
+    networks:
+      - chu_network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U admin -d healthcare_data"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  # ----------------------------------------------------------
+  # PGADMIN - Interface Web PostgreSQL
+  # ----------------------------------------------------------
+  pgadmin:
+    image: dpage/pgadmin4:latest
+    container_name: chu_pgadmin
+    environment:
+      PGADMIN_DEFAULT_EMAIL: admin@chu.fr
+      PGADMIN_DEFAULT_PASSWORD: admin123
+      PGADMIN_CONFIG_SERVER_MODE: 'False'
+      PGADMIN_CONFIG_MASTER_PASSWORD_REQUIRED: 'False'
+    ports:
+      - "5050:80"
+    networks:
+      - chu_network
+    depends_on:
+      - postgres
+    restart: unless-stopped
+
+  # ----------------------------------------------------------
+  # MINIO - Stockage S3 pour Delta Lake
+  # ----------------------------------------------------------
+  minio:
+    image: minio/minio:latest
+    container_name: chu_minio
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: minioadmin
+      MINIO_ROOT_PASSWORD: minioadmin123
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    volumes:
+      - minio_data:/data
+    networks:
+      - chu_network
+    healthcheck:
+      test: ["CMD", "mc", "ready", "local"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  # ----------------------------------------------------------
+  # MINIO SETUP - Créer buckets Delta Lake
+  # ----------------------------------------------------------
+  minio_setup:
+    image: minio/mc:latest
+    container_name: chu_minio_setup
+    depends_on:
+      minio:
+        condition: service_healthy
+    networks:
+      - chu_network
+    entrypoint: >
+      /bin/sh -c "
+      mc alias set myminio http://chu_minio:9000 minioadmin minioadmin123;
+      mc mb myminio/lakehouse --ignore-existing;
+      mc mb myminio/warehouse --ignore-existing;
+      echo '✅ Buckets Delta Lake créés avec succès!';
+      "
+    restart: "no"
+
+  # ----------------------------------------------------------
+  # SPARK MASTER - Coordinateur Spark
+  # ----------------------------------------------------------
+  spark-master:
+    image: apache/spark:3.4.0
+    container_name: chu_spark_master
+    hostname: chu_spark_master
+    environment:
+      - SPARK_MODE=master
+      - SPARK_MASTER_HOST=chu_spark_master
+      - SPARK_MASTER_PORT=7077
+    ports:
+      - "8081:8080"  # Spark Master UI
+      - "7077:7077"  # Spark Master Port
+    volumes:
+      - ./spark/apps:/opt/spark-apps
+      - ./spark/data:/opt/spark-data
+      - spark_logs:/var/log/spark
+    networks:
+      - chu_network
+    command: /opt/spark/bin/spark-class org.apache.spark.deploy.master.Master
+    restart: unless-stopped
+
+  # ----------------------------------------------------------
+  # SPARK WORKER - Exécuteur Spark
+  # ----------------------------------------------------------
+  spark-worker:
+    image: apache/spark:3.4.0
+    container_name: chu_spark_worker
+    environment:
+      - SPARK_MODE=worker
+      - SPARK_MASTER_URL=spark://chu_spark_master:7077
+      - SPARK_WORKER_MEMORY=2G
+      - SPARK_WORKER_CORES=2
+    depends_on:
+      - spark-master
+    volumes:
+      - ./spark/apps:/opt/spark-apps
+      - ./spark/data:/opt/spark-data
+      - spark_logs:/var/log/spark
+    networks:
+      - chu_network
+    command: /opt/spark/bin/spark-class org.apache.spark.deploy.worker.Worker spark://chu_spark_master:7077
+    restart: unless-stopped
+
+  # ----------------------------------------------------------
+  # AIRFLOW DATABASE
+  # ----------------------------------------------------------
+  airflow-db:
+    image: postgres:15-alpine
+    container_name: chu_airflow_db
+    environment:
+      POSTGRES_USER: airflow
+      POSTGRES_PASSWORD: airflow123
+      POSTGRES_DB: airflow
+    networks:
+      - chu_network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U airflow"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  # ----------------------------------------------------------
+  # AIRFLOW INIT - Initialisation
+  # ----------------------------------------------------------
+  airflow-init:
+    build:
+      context: ./airflow
+      dockerfile: Dockerfile
+    container_name: chu_airflow_init
+    depends_on:
+      airflow-db:
+        condition: service_healthy
+    networks:
+      - chu_network
+    environment:
+      AIRFLOW__CORE__EXECUTOR: LocalExecutor
+      AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://airflow:airflow123@chu_airflow_db:5432/airflow
+      AIRFLOW__CORE__FERNET_KEY: 'ZmDfcTF7_60GrrY167zsiPd67pEvs0aGOv2oasOM1Pg='
+      AIRFLOW__CORE__LOAD_EXAMPLES: 'False'
+      AIRFLOW__WEBSERVER__SECRET_KEY: 'chu_secret_key_2025'
+      _AIRFLOW_DB_UPGRADE: 'true'
+      _AIRFLOW_WWW_USER_CREATE: 'true'
+      _AIRFLOW_WWW_USER_USERNAME: admin
+      _AIRFLOW_WWW_USER_PASSWORD: admin123
+    volumes:
+      - ./airflow/dags:/opt/airflow/dags
+      - ./airflow/logs:/opt/airflow/logs
+      - ./airflow/plugins:/opt/airflow/plugins
+    entrypoint: /bin/bash
+    command: -c "airflow db upgrade && airflow users create --username admin --password admin123 --firstname Admin --lastname User --role Admin --email admin@chu.fr || true"
+    restart: "no"
+
+  # ----------------------------------------------------------
+  # AIRFLOW WEBSERVER
+  # ----------------------------------------------------------
+  airflow-webserver:
+    build:
+      context: ./airflow
+      dockerfile: Dockerfile
+    container_name: chu_airflow_webserver
+    depends_on:
+      airflow-init:
+        condition: service_completed_successfully
+      postgres:
+        condition: service_healthy
+      spark-master:
+        condition: service_started
+    networks:
+      - chu_network
+    environment:
+      AIRFLOW__CORE__EXECUTOR: LocalExecutor
+      AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://airflow:airflow123@chu_airflow_db:5432/airflow
+      AIRFLOW__CORE__FERNET_KEY: 'ZmDfcTF7_60GrrY167zsiPd67pEvs0aGOv2oasOM1Pg='
+      AIRFLOW__CORE__LOAD_EXAMPLES: 'False'
+      AIRFLOW__WEBSERVER__SECRET_KEY: 'chu_secret_key_2025'
+      AIRFLOW__WEBSERVER__EXPOSE_CONFIG: 'True'
+      # Connexions pré-configurées
+      AIRFLOW_CONN_POSTGRES_CHU: postgresql://admin:admin123@chu_postgres:5432/healthcare_data
+      AIRFLOW_CONN_SPARK_DEFAULT: spark://chu_spark_master:7077
+      # Configuration MinIO S3
+      AWS_ACCESS_KEY_ID: minioadmin
+      AWS_SECRET_ACCESS_KEY: minioadmin123
+    ports:
+      - "8080:8080"
+    volumes:
+      - ./airflow/dags:/opt/airflow/dags
+      - ./airflow/logs:/opt/airflow/logs
+      - ./airflow/plugins:/opt/airflow/plugins
+      - ./spark/apps:/opt/spark-apps
+    healthcheck:
+      test: ["CMD", "curl", "--fail", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+    command: webserver
+    restart: unless-stopped
+    user: "${AIRFLOW_UID:-50000}:0"
+
+  # ----------------------------------------------------------
+  # AIRFLOW SCHEDULER
+  # ----------------------------------------------------------
+  airflow-scheduler:
+    build:
+      context: ./airflow
+      dockerfile: Dockerfile
+    container_name: chu_airflow_scheduler
+    depends_on:
+      airflow-init:
+        condition: service_completed_successfully
+      postgres:
+        condition: service_healthy
+      spark-master:
+        condition: service_started
+    networks:
+      - chu_network
+    environment:
+      AIRFLOW__CORE__EXECUTOR: LocalExecutor
+      AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://airflow:airflow123@chu_airflow_db:5432/airflow
+      AIRFLOW__CORE__FERNET_KEY: 'ZmDfcTF7_60GrrY167zsiPd67pEvs0aGOv2oasOM1Pg='
+      AIRFLOW__CORE__LOAD_EXAMPLES: 'False'
+      # Connexions pré-configurées
+      AIRFLOW_CONN_POSTGRES_CHU: postgresql://admin:admin123@chu_postgres:5432/healthcare_data
+      AIRFLOW_CONN_SPARK_DEFAULT: spark://chu_spark_master:7077
+      # Configuration MinIO S3
+      AWS_ACCESS_KEY_ID: minioadmin
+      AWS_SECRET_ACCESS_KEY: minioadmin123
+    volumes:
+      - ./airflow/dags:/opt/airflow/dags
+      - ./airflow/logs:/opt/airflow/logs
+      - ./airflow/plugins:/opt/airflow/plugins
+      - ./spark/apps:/opt/spark-apps
+    command: scheduler
+    restart: unless-stopped
+    user: "${AIRFLOW_UID:-50000}:0"
+
+  # ----------------------------------------------------------
+  # JUPYTER LAB - Développement PySpark + Delta Lake
+  # ----------------------------------------------------------
+  jupyter:
+    build:
+      context: ./jupyter
+      dockerfile: Dockerfile
+    container_name: chu_jupyter
+    ports:
+      - "8888:8888"
+      - "4040:4040"  # Spark UI
+    environment:
+      JUPYTER_ENABLE_LAB: "yes"
+      JUPYTER_TOKEN: admin123
+      GRANT_SUDO: "yes"
+    volumes:
+      - ./jupyter/notebooks:/home/jovyan/notebooks
+      - ./spark/data:/home/jovyan/data
+      - ./DATA_2024:/home/jovyan/DATA_2024:ro
+    networks:
+      - chu_network
+    command: start-notebook.sh --NotebookApp.token='admin123'
+    restart: unless-stopped
+
+  # ----------------------------------------------------------
+  # SUPERSET - Dashboards BI
+  # ----------------------------------------------------------
+  superset-db:
+    image: postgres:15-alpine
+    container_name: chu_superset_db
+    environment:
+      POSTGRES_USER: superset
+      POSTGRES_PASSWORD: superset123
+      POSTGRES_DB: superset
+    networks:
+      - chu_network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U superset"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  superset:
+    image: apache/superset:latest
+    container_name: chu_superset
+    depends_on:
+      superset-db:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+    networks:
+      - chu_network
+    environment:
+      SUPERSET_SECRET_KEY: 'chu_superset_secret_key_2025_very_secret'
+      DATABASE_DB: superset
+      DATABASE_HOST: chu_superset_db
+      DATABASE_PASSWORD: superset123
+      DATABASE_USER: superset
+      DATABASE_PORT: 5432
+      DATABASE_DIALECT: postgresql
+    ports:
+      - "8088:8088"
+    command: >
+      /bin/sh -c "
+      pip install psycopg2-binary &&
+      superset db upgrade &&
+      superset fab create-admin --username admin --firstname Admin --lastname User --email admin@chu.fr --password admin123 || true &&
+      superset init &&
+      superset run -h 0.0.0.0 -p 8088 --with-threads --reload --debugger
+      "
+    restart: unless-stopped
+
+# ============================================================
+# FIN
+# ============================================================
