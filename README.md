@@ -92,29 +92,23 @@ Tous les services doivent être **Up** (sauf worker Spark - non utilisé).
 
 ## 🗄️ Données de Départ
 
-### Données de test incluses
+### ⚠️ IMPORTANT : Restauration du dump PostgreSQL
 
-Le projet inclut un jeu de données **fictives et réalistes** pour le CHU :
+**Après le premier lancement**, vous devez restaurer le dump de la base de données :
 
-**Tables de dimension** :
-- 100 patients avec PII (pour tester RGPD)
-- 20 médecins avec spécialités
-- 8 services hospitaliers
-- 30 médicaments
+```bash
+# 1. Lancer la stack
+docker-compose up -d
 
-**Tables de faits** :
-- 108 consultations (2023-2024)
-- 50 hospitalisations
-- 65 prescriptions
-- 94 actes médicaux
+# 2. Attendre que PostgreSQL soit prêt (2-3 minutes)
 
-**Total : 357 enregistrements** prêts pour l'analyse.
+# 3. Restaurer le dump
+docker exec -it chu_postgres pg_restore -U admin -d healthcare_data -v /docker-entrypoint-initdb.d/DATA2023.dump
+```
 
-### Initialisation automatique
+Le dump contient toutes les **données réelles du CHU** (patients, consultations, diagnostics, etc.)
 
-PostgreSQL charge automatiquement les données au premier lancement via les scripts SQL dans `data/`
-
-📖 **Voir [data/README.md](data/README.md) pour plus de détails.**
+📖 **Voir [data/README.md](data/README.md) pour les instructions détaillées.**
 
 ---
 

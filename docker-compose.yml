@@ -41,6 +41,7 @@ services:
     volumes:
       - postgres_data:/var/lib/postgresql/data
       - ./data:/docker-entrypoint-initdb.d
+      - ./data/DATA 2024:/docker-entrypoint-initdb.d/DATA 2024:ro
     networks:
       - chu_network
     healthcheck:
