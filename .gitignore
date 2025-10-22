@@ -102,6 +102,7 @@ spark/logs/
 derby.log
 metastore_db/
 spark-warehouse/
+spark/data/*.parquet.crc
 
 # ============================================================
 # DELTA LAKE

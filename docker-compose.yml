@@ -125,7 +125,6 @@ services:
       - SPARK_MODE=master
       - SPARK_MASTER_HOST=chu_spark_master
       - SPARK_MASTER_PORT=7077
-      - SPARK_DRIVER_MEMORY=16G
     ports:
       - "8081:8080"  # Spark Master UI
       - "7077:7077"  # Spark Master Port
