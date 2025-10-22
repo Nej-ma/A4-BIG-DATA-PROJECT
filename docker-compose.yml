@@ -84,7 +84,7 @@ services:
       - "9000:9000"
       - "9001:9001"
     volumes:
-      - minio_data:/data
+      - ./spark/data:/data  # ✅ FIXÉ : Partage le même répertoire que Jupyter
     networks:
       - chu_network
     healthcheck:
@@ -125,12 +125,14 @@ services:
       - SPARK_MODE=master
       - SPARK_MASTER_HOST=chu_spark_master
       - SPARK_MASTER_PORT=7077
+      - SPARK_DRIVER_MEMORY=16G
     ports:
       - "8081:8080"  # Spark Master UI
       - "7077:7077"  # Spark Master Port
     volumes:
-      - ./spark/apps:/opt/spark-apps
+      - ./spark/jobs:/opt/spark-apps
       - ./spark/data:/opt/spark-data
+      - ./DATA_2024:/data/DATA_2024:ro
       - spark_logs:/var/log/spark
     networks:
       - chu_network
@@ -151,8 +153,9 @@ services:
     depends_on:
       - spark-master
     volumes:
-      - ./spark/apps:/opt/spark-apps
+      - ./spark/jobs:/opt/spark-apps
       - ./spark/data:/opt/spark-data
+      - ./DATA_2024:/data/DATA_2024:ro
       - spark_logs:/var/log/spark
     networks:
       - chu_network
@@ -233,6 +236,7 @@ services:
       AIRFLOW__CORE__LOAD_EXAMPLES: 'False'
       AIRFLOW__WEBSERVER__SECRET_KEY: 'chu_secret_key_2025'
       AIRFLOW__WEBSERVER__EXPOSE_CONFIG: 'True'
+      AIRFLOW__WEBSERVER__WTF_CSRF_ENABLED: 'False'
       # Connexions pré-configurées
       AIRFLOW_CONN_POSTGRES_CHU: postgresql://admin:admin123@chu_postgres:5432/healthcare_data
       AIRFLOW_CONN_SPARK_DEFAULT: spark://chu_spark_master:7077
@@ -310,7 +314,8 @@ services:
     volumes:
       - ./jupyter/notebooks:/home/jovyan/notebooks
       - ./spark/data:/home/jovyan/data
-      - ./DATA_2024:/home/jovyan/DATA_2024:ro
+      - ./spark/jobs:/opt/spark-apps
+      - ./data/DATA 2024:/home/jovyan/DATA_2024:ro
     networks:
       - chu_network
     command: start-notebook.sh --NotebookApp.token='admin123'

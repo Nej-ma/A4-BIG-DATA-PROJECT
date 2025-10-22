@@ -1,0 +1,29 @@
+je viens de run toutes les couches notebook de 1 à 4. J'ai dû cependant corriger quelques erreurs dans les notebook.
+
+Fin du 03_Transform gold :
+
+RÉSUMÉ PAR TYPE
+==================================================
+           nb_tables     rows  columns
+type                                  
+DIMENSION          5  1169013       33
+FAIT               3  1647790       44
+
+📋 DÉTAIL DES TABLES
+==================================================
+
+	table 	rows 	columns 	type
+0 	dim_diagnostic 	15490 	2 	DIMENSION
+1 	dim_etablissement 	200 	7 	DIMENSION
+2 	dim_patient 	100000 	10 	DIMENSION
+3 	dim_professionnel 	1048575 	5 	DIMENSION
+4 	dim_temps 	4748 	9 	DIMENSION
+5 	fait_consultation 	1027157 	13 	FAIT
+6 	fait_deces 	620625 	15 	FAIT
+7 	fait_satisfaction 	8 	16 	FAIT
+
+
+📊 TOTAL GOLD LAYER: 2,816,803 lignes
+
+
+Cependant je n'ai rien dans minio est-ce normal? Peut être on a pas monté le bon volume de minio ou ça pointe pas sur le bon truc. Tu peux réparer stp. Sinon les scripts notebook fonctionnent nickels donc ça pas besoin de toucher. 
