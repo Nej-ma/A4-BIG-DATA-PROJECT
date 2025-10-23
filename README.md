@@ -14,51 +14,69 @@ CESI FISA A4 - Livrable 2
 
 ## ⚡ STATUT : LIVRABLE 2 COMPLET ET OPÉRATIONNEL ✅
 
-**🎉 Tous les problèmes résolus - Pipeline 100% fonctionnel**
+**🎉 Pipeline 100% fonctionnel - Bronze → Silver → Gold + Superset**
 
-### 📊 Résultats finaux
+### 📚 Documentation Essentielle
 
-| Layer | Tables | Lignes | Statut |
-|-------|--------|--------|--------|
-| **Bronze** | 16 | ~4.6M | ✅ |
-| **Silver** | 12 | ~4.6M | ✅ |
-| **Gold** | 8 | 2.8M | ✅ |
+**Tous les guides sont dans le dossier [`docs/`](docs/)**:
 
-**MinIO** : ✅ Données visibles dans Console (http://localhost:9001)
+- 🚀 **[GUIDE_UTILISATION.md](docs/GUIDE_UTILISATION.md)** - Guide complet d'utilisation (démarrage, notebooks, Superset, SQL, Docker)
+- 📊 **[SYNTHESE_PROJET.md](docs/SYNTHESE_PROJET.md)** - Synthèse technique complète (architecture, découvertes, conformité)
+- 🔧 **[TROUBLESHOOTING.md](docs/TROUBLESHOOTING.md)** - Solutions aux problèmes courants
+- 📋 **[docs/README.md](docs/README.md)** - Index de la documentation
 
-### 🚀 Exécution rapide (3 étapes)
+**Ancienne documentation** : Archivée dans [`docs/archives/`](docs/archives/) pour référence
+
+### 📊 Résultats Finaux
+
+**Architecture Médaillon Complète**:
+
+| Layer | Tables | Lignes | Temps | Statut |
+|-------|--------|--------|-------|--------|
+| **Bronze** | 17 | ~4M | ~2 min | ✅ |
+| **Silver** | 13 | ~3.5M | ~3 min | ✅ |
+| **Gold** | 9 (5 dims + 4 faits) | ~2.9M | ~3 min | ✅ |
+| **PostgreSQL** | 9 tables gold | ~2.9M | ~3 min | ✅ |
+
+**Tables de Faits (Conforme Livrable 1)** ✅:
+1. **fait_consultation** - 1,027,157 consultations (2015-2023)
+2. **fait_hospitalisation** - 82,216 hospitalisations (2013-2025) ← Découvert!
+3. **fait_deces** - 620,625 décès (2019 filtré)
+4. **fait_satisfaction** - 8 scores E-Satis (2019)
+
+**Dimensions** (5):
+- dim_temps, dim_patient, dim_diagnostic, dim_professionnel, dim_etablissement
+
+### 🚀 Quick Start (3 étapes)
 
 ```bash
-# 1. Lancer la stack
-docker compose up -d
+# 1. Démarrer la stack
+docker-compose up -d
 
-# 2. Accéder à Jupyter (http://localhost:8888, token: admin123)
+# 2. Accéder Jupyter: http://localhost:8888
 
-# 3. Exécuter les notebooks dans l'ordre:
-#    ✅ 01_Extract_Bronze_SOURCES_DIRECTES.ipynb    (~2 min)
-#    ✅ 02_Transform_Silver_NETTOYAGE.ipynb         (~3 min)
-#    ✅ 03_Transform_Gold_STAR_SCHEMA.ipynb         (~2 min)
-#    ✅ 04_Performance_Benchmarks.ipynb             (~1 min)
+# 3. Exécuter notebooks dans l'ordre:
+#    01_Extract_Bronze_SOURCES_DIRECTES.ipynb      (~2 min)
+#    02_Transform_Silver_NETTOYAGE.ipynb           (~3 min)
+#    03_Transform_Gold_STAR_SCHEMA.ipynb           (~3 min)
+#    06_Export_Gold_to_PostgreSQL.ipynb            (~3 min)
+
+# 4. Accéder Superset: http://localhost:8088 (admin/admin123)
 ```
 
-**Temps total** : ~10 minutes ⏱️
+**Temps total pipeline**: ~11 minutes ⏱️
 
-### ✅ Architecture ETLT (conforme Livrable 1)
+### ✅ Architecture ETLT (Conforme Livrable 1)
 
 ```
-CSV + PostgreSQL → Bronze → Silver (RGPD) → Gold (Star Schema)
+PostgreSQL + CSV → Bronze → Silver (Pseudonymisation) → Gold (Star Schema) → PostgreSQL → Superset
 ```
 
-- ✅ **E**xtract : Sources directes (CSV + PostgreSQL)
-- ✅ **T1** : Anonymisation RGPD (SHA-256)
-- ✅ **L**oad : MinIO (Parquet compressé)
-- ✅ **T2** : Star Schema (5 dims + 3 faits)
-
-**📋 Documentation complète** :
-- [PIPELINE_FINAL_CORRECT.md](PIPELINE_FINAL_CORRECT.md) - Architecture ETL
-- [LIVRABLE_2_FINAL.md](LIVRABLE_2_FINAL.md) - Résumé livrable
-- [CONFORMITE_LIVRABLE1.md](CONFORMITE_LIVRABLE1.md) - Validation conformité
-- [RESOLUTION_PROBLEMES.md](RESOLUTION_PROBLEMES.md) - Problèmes résolus
+- ✅ **Extract**: PostgreSQL (13 tables) + CSV (4 fichiers)
+- ✅ **Transform 1**: Pseudonymisation RGPD (SHA-256 + sel)
+- ✅ **Load**: Parquet compressé (snappy) + partitionnement
+- ✅ **Transform 2**: Star Schema (5 dimensions + 4 faits)
+- ✅ **Visualisation**: Apache Superset + PostgreSQL Gold
 
 ---
 

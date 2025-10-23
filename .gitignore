@@ -8,7 +8,6 @@
 # ⚠️ SÉCURITÉ - DONNÉES SENSIBLES
 # ============================================================
 # NE JAMAIS versionner les données réelles des patients !
-*.csv
 *.parquet
 *.json
 *.xlsx
@@ -19,7 +18,7 @@ data/DATA 2024
 datasets/
 raw_data/
 processed_data/
-
+spark/data/*
 # ============================================================
 # DOCKER - VOLUMES ET LOGS
 # ============================================================
@@ -103,6 +102,7 @@ derby.log
 metastore_db/
 spark-warehouse/
 spark/data/*.parquet.crc
+
 
 # ============================================================
 # DELTA LAKE

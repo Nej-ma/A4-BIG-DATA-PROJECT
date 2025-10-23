@@ -1,0 +1,102 @@
+libelle_departement;num_departement;libelle_region;abv_region
+Ain;01;Auvergne-Rhône-Alpes;ARA
+Allier;03;Auvergne-Rhône-Alpes;ARA
+Ardèche;07;Auvergne-Rhône-Alpes;ARA
+Cantal;15;Auvergne-Rhône-Alpes;ARA
+Drôme;26;Auvergne-Rhône-Alpes;ARA
+Isère;38;Auvergne-Rhône-Alpes;ARA
+Loire;42;Auvergne-Rhône-Alpes;ARA
+Haute-Loire;43;Auvergne-Rhône-Alpes;ARA
+Puy-de-Dôme;63;Auvergne-Rhône-Alpes;ARA
+Rhône;69;Auvergne-Rhône-Alpes;ARA
+Savoie;73;Auvergne-Rhône-Alpes;ARA
+Haute-Savoie;74;Auvergne-Rhône-Alpes;ARA
+Côte-d'Or;21;Bourgogne-Franche-Comté;BFC
+Doubs;25;Bourgogne-Franche-Comté;BFC
+Jura;39;Bourgogne-Franche-Comté;BFC
+Nièvre;58;Bourgogne-Franche-Comté;BFC
+Haute-Saône;70;Bourgogne-Franche-Comté;BFC
+Saône-et-Loire;71;Bourgogne-Franche-Comté;BFC
+Yonne;89;Bourgogne-Franche-Comté;BFC
+Territoire de Belfort;90;Bourgogne-Franche-Comté;BFC
+Côtes-d'Armor;22;Bretagne;BRE
+Finistère;29;Bretagne;BRE
+Ille-et-Vilaine;35;Bretagne;BRE
+Morbihan;56;Bretagne;BRE
+Cher;18;Centre-Val de Loire;CVL
+Eure-et-Loir;28;Centre-Val de Loire;CVL
+Indre;36;Centre-Val de Loire;CVL
+Indre-et-Loire;37;Centre-Val de Loire;CVL
+Loir-et-Cher;41;Centre-Val de Loire;CVL
+Loiret;45;Centre-Val de Loire;CVL
+Corse-du-Sud;2A;Corse;COR
+Haute-Corse;2B;Corse;COR
+Ardennes;08;Grand Est;GES
+Aube;10;Grand Est;GES
+Marne;51;Grand Est;GES
+Haute-Marne;52;Grand Est;GES
+Meurthe-et-Moselle;54;Grand Est;GES
+Meuse;55;Grand Est;GES
+Moselle;57;Grand Est;GES
+Bas-Rhin;67;Grand Est;GES
+Haut-Rhin;68;Grand Est;GES
+Vosges;88;Grand Est;GES
+Guadeloupe;971;Guadeloupe;GUA
+Guyane;973;Guyane;GUF
+Aisne;02;Hauts-de-France;HDF
+Nord;59;Hauts-de-France;HDF
+Oise;60;Hauts-de-France;HDF
+Pas-de-Calais;62;Hauts-de-France;HDF
+Somme;80;Hauts-de-France;HDF
+Paris;75;Ile-de-France;IDF
+Seine-et-Marne;77;Ile-de-France;IDF
+Yvelines;78;Ile-de-France;IDF
+Essonne;91;Ile-de-France;IDF
+Hauts-de-Seine;92;Ile-de-France;IDF
+Seine-St-Denis;93;Ile-de-France;IDF
+Val-de-Marne;94;Ile-de-France;IDF
+Val-D'Oise;95;Ile-de-France;IDF
+La Réunion;974;La Réunion;LRE
+Martinique;972;Martinique;MTQ
+Mayotte;976;Mayotte;MAY
+Calvados;14;Normandie;NOR
+Eure;27;Normandie;NOR
+Manche;50;Normandie;NOR
+Orne;61;Normandie;NOR
+Seine-Maritime;76;Normandie;NOR
+Charente;16;Nouvelle-Aquitaine;NAQ
+Charente-Maritime;17;Nouvelle-Aquitaine;NAQ
+Corrèze;19;Nouvelle-Aquitaine;NAQ
+Creuse;23;Nouvelle-Aquitaine;NAQ
+Dordogne;24;Nouvelle-Aquitaine;NAQ
+Gironde;33;Nouvelle-Aquitaine;NAQ
+Landes;40;Nouvelle-Aquitaine;NAQ
+Lot-et-Garonne;47;Nouvelle-Aquitaine;NAQ
+Pyrénées-Atlantiques;64;Nouvelle-Aquitaine;NAQ
+Deux-Sèvres;79;Nouvelle-Aquitaine;NAQ
+Vienne;86;Nouvelle-Aquitaine;NAQ
+Haute-Vienne;87;Nouvelle-Aquitaine;NAQ
+Ariège;09;Occitanie;OCC
+Aude;11;Occitanie;OCC
+Aveyron;12;Occitanie;OCC
+Gard;30;Occitanie;OCC
+Haute-Garonne;31;Occitanie;OCC
+Gers;32;Occitanie;OCC
+Hérault;34;Occitanie;OCC
+Lot;46;Occitanie;OCC
+Lozère;48;Occitanie;OCC
+Hautes-Pyrénées;65;Occitanie;OCC
+Pyrénées-Orientales;66;Occitanie;OCC
+Tarn;81;Occitanie;OCC
+Tarn-et-Garonne;82;Occitanie;OCC
+Loire-Atlantique;44;Pays de la Loire;PDL
+Maine-et-Loire;49;Pays de la Loire;PDL
+Mayenne;53;Pays de la Loire;PDL
+Sarthe;72;Pays de la Loire;PDL
+Vendée;85;Pays de la Loire;PDL
+Alpes-de-Haute-Provence;04;Provence-Alpes-Côte d'Azur;PAC
+Hautes-Alpes;05;Provence-Alpes-Côte d'Azur;PAC
+Alpes-Maritimes;06;Provence-Alpes-Côte d'Azur;PAC
+Bouches-du-Rhône;13;Provence-Alpes-Côte d'Azur;PAC
+Var;83;Provence-Alpes-Côte d'Azur;PAC
+Vaucluse;84;Provence-Alpes-Côte d'Azur;PAC
