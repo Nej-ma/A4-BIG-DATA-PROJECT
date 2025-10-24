@@ -13,6 +13,8 @@
 *.xlsx
 *.xls
 prosit*
+airflow/db_data/*
+spark/data/*
 # Données de production (à exclure absolument)
 data/DATA 2024
 datasets/
