@@ -1,0 +1,143 @@
+---
+title: Modèle Décisionnel CHU - Constellation d'Étoiles
+---
+erDiagram
+    %% ============================================================
+    %% COULEURS:
+    %% - Dimensions communes = BLEU (#E3F2FD)
+    %% - Dimensions spécifiques = VERT (#E8F5E9)
+    %% - Tables de faits = ORANGE (#FFF3E0)
+    %% ============================================================
+
+    %% ===== DIMENSIONS COMMUNES (BLEU) =====
+
+    DIM_TEMPS {
+        int sk_temps PK
+        date date_complete
+        int annee
+        int trimestre
+        int mois
+        varchar mois_libelle
+    }
+
+    DIM_PATIENT {
+        int sk_patient PK
+        varchar patient_pseudo_id
+        char sexe
+        int age
+        varchar tranche_age
+        varchar groupe_sanguin
+    }
+
+    DIM_DIAGNOSTIC {
+        int sk_diagnostic PK
+        varchar code_diag
+        varchar libelle_diagnostic
+        varchar chapitre_cim10
+        varchar gravite
+    }
+
+    DIM_ETABLISSEMENT {
+        int sk_etablissement PK
+        varchar finess
+        varchar nom_etablissement
+        varchar commune
+        varchar region
+        varchar type_etablissement
+    }
+
+    %% ===== DIMENSIONS SPÉCIFIQUES (VERT) =====
+
+    DIM_PROFESSIONNEL {
+        int sk_professionnel PK
+        varchar prof_pseudo_id
+        varchar profession
+        varchar specialite
+        varchar type_identifiant
+    }
+
+    DIM_SPECIALITE {
+        int sk_specialite PK
+        varchar code_specialite
+        varchar specialite
+        varchar domaine_medical
+    }
+
+    DIM_MUTUELLE {
+        int sk_mutuelle PK
+        varchar id_mut
+        varchar nom
+        varchar type_mutuelle
+    }
+
+    DIM_TYPE_ENQUETE {
+        int sk_type_enquete PK
+        varchar type_enquete
+        int annee_enquete
+        varchar libelle_court
+    }
+
+    %% ===== TABLES DE FAITS (ORANGE) =====
+
+    FAIT_CONSULTATION {
+        int sk_temps FK
+        int sk_patient FK
+        int sk_professionnel FK
+        int sk_diagnostic FK
+        int sk_etablissement FK
+        int sk_mutuelle FK
+        int nb_consultations
+    }
+
+    FAIT_HOSPITALISATION {
+        int sk_temps_entree FK
+        int sk_temps_sortie FK
+        int sk_patient FK
+        int sk_etablissement FK
+        int sk_diagnostic FK
+        int duree_sejour
+    }
+
+    FAIT_DECES {
+        int sk_temps FK
+        int sk_patient FK
+        int nb_deces
+        int age_au_deces
+    }
+
+    FAIT_SATISFACTION_PATIENT {
+        int sk_temps FK
+        int sk_etablissement FK
+        int sk_type_enquete FK
+        int nb_reponses
+        decimal score_global
+    }
+
+    %% ===== RELATIONS =====
+
+    %% Consultation
+    FAIT_CONSULTATION }o--|| DIM_TEMPS : ""
+    FAIT_CONSULTATION }o--|| DIM_PATIENT : ""
+    FAIT_CONSULTATION }o--|| DIM_PROFESSIONNEL : ""
+    FAIT_CONSULTATION }o--|| DIM_DIAGNOSTIC : ""
+    FAIT_CONSULTATION }o--|| DIM_ETABLISSEMENT : ""
+    FAIT_CONSULTATION }o--|| DIM_MUTUELLE : ""
+
+    %% Hospitalisation
+    FAIT_HOSPITALISATION }o--|| DIM_TEMPS : "entree"
+    FAIT_HOSPITALISATION }o--|| DIM_TEMPS : "sortie"
+    FAIT_HOSPITALISATION }o--|| DIM_PATIENT : ""
+    FAIT_HOSPITALISATION }o--|| DIM_ETABLISSEMENT : ""
+    FAIT_HOSPITALISATION }o--|| DIM_DIAGNOSTIC : ""
+
+    %% Décès
+    FAIT_DECES }o--|| DIM_TEMPS : ""
+    FAIT_DECES }o--|| DIM_PATIENT : ""
+
+    %% Satisfaction
+    FAIT_SATISFACTION_PATIENT }o--|| DIM_TEMPS : ""
+    FAIT_SATISFACTION_PATIENT }o--|| DIM_ETABLISSEMENT : ""
+    FAIT_SATISFACTION_PATIENT }o--|| DIM_TYPE_ENQUETE : ""
+
+    %% Inter-dimensions
+    DIM_PROFESSIONNEL }o--|| DIM_SPECIALITE : ""

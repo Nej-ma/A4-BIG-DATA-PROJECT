@@ -17,6 +17,8 @@ from pyspark.sql.functions import (
 )
 import sys
 import logging
+import os
+import argparse
 
 logging.basicConfig(
     level=logging.INFO,
@@ -30,8 +32,9 @@ class SilverTransformer:
 
     def __init__(self, spark):
         self.spark = spark
-        self.bronze_base = "/home/jovyan/data/bronze"
-        self.silver_base = "/home/jovyan/data/silver"
+        data_base = os.getenv("DATA_BASE", "/opt/spark-data")
+        self.bronze_base = f"{data_base}/bronze"
+        self.silver_base = f"{data_base}/silver"
         self.results = []
 
     def transform_patient(self):
@@ -385,12 +388,18 @@ class SilverTransformer:
 
 def create_spark_session():
     """Create Spark session with optimal configuration"""
-    return SparkSession.builder \
-        .appName("CHU - Silver Transformation") \
-        .config("spark.driver.memory", "4g") \
-        .config("spark.executor.memory", "4g") \
-        .config("spark.sql.adaptive.enabled", "true") \
-        .getOrCreate()
+    master = os.getenv("SPARK_MASTER_URL", "local[*]")
+    builder = (
+        SparkSession.builder
+        .appName(os.getenv("SPARK_APP_NAME", "CHU - Silver Transformation"))
+        .config("spark.driver.memory", os.getenv("SPARK_DRIVER_MEMORY", "4g"))
+        .config("spark.executor.memory", os.getenv("SPARK_EXECUTOR_MEMORY", "4g"))
+        .config("spark.sql.adaptive.enabled", "true")
+        .config("spark.jars.packages", os.getenv("SPARK_PACKAGES", "org.postgresql:postgresql:42.7.3"))
+    )
+    if master:
+        builder = builder.master(master)
+    return builder.getOrCreate()
 
 
 def main():
@@ -403,15 +412,32 @@ def main():
     try:
         transformer = SilverTransformer(spark)
 
-        # Transform main tables with specific logic
-        transformer.results.append(transformer.transform_patient())
-        transformer.results.append(transformer.transform_consultation())
-        transformer.results.append(transformer.transform_etablissement_sante())
-        transformer.results.append(transformer.transform_satisfaction())
-        transformer.results.append(transformer.transform_deces())
+        parser = argparse.ArgumentParser(description="Silver transformation job")
+        parser.add_argument(
+            "--subject",
+            choices=[
+                "patient", "consultation", "etablissement_sante",
+                "satisfaction", "satisfaction_2019", "deces", "deces_2019",
+                "references", "all"
+            ],
+            help="Run only a specific subject or all",
+        )
+        args = parser.parse_args()
 
-        # Transform reference tables
-        transformer.transform_reference_tables()
+        subj = args.subject or "all"
+
+        if subj in ("patient", "all"):
+            transformer.results.append(transformer.transform_patient())
+        if subj in ("consultation", "all"):
+            transformer.results.append(transformer.transform_consultation())
+        if subj in ("etablissement_sante", "all"):
+            transformer.results.append(transformer.transform_etablissement_sante())
+        if subj in ("satisfaction", "satisfaction_2019", "all"):
+            transformer.results.append(transformer.transform_satisfaction())
+        if subj in ("deces", "deces_2019", "all"):
+            transformer.results.append(transformer.transform_deces())
+        if subj in ("references", "all"):
+            transformer.transform_reference_tables()
 
         transformer.print_summary()
 

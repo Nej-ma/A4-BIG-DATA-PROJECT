@@ -1,0 +1,182 @@
+erDiagram
+    %% ===== DIMENSIONS COMMUNES =====
+    DIM_TEMPS {
+        int sk_temps PK
+        date date_complete
+        int annee
+        int trimestre
+        int mois
+        string mois_libelle
+        int semaine
+        int jour
+        string jour_semaine
+        boolean est_weekend
+    }
+
+    DIM_PATIENT {
+        int sk_patient PK
+        string patient_pseudo_id
+        string sexe
+        int age_a_la_consultation
+        string tranche_age
+        string groupe_sanguin
+        string ville
+        string code_postal
+        string region
+        string pays
+        float poid
+        float taille
+        float bmi
+    }
+
+    DIM_DIAGNOSTIC {
+        int sk_diagnostic PK
+        string code_diag
+        string libelle_diagnostic
+        string code_cim10_3car
+        string chapitre_cim10
+        string categorie_cim10
+        string gravite
+    }
+
+    DIM_ETABLISSEMENT {
+        int sk_etablissement PK
+        string finess
+        string identifiant_organisation
+        string nom_etablissement
+        string commune
+        string code_postal
+        string region
+        string type_etablissement
+        string statut
+        string adresse_complete
+        string telephone
+        string email
+    }
+
+    %% ===== DIMENSIONS SPÉCIFIQUES =====
+    DIM_PROFESSIONNEL {
+        int sk_professionnel PK
+        string prof_pseudo_id
+        string civilite
+        string categorie_professionnelle
+        string profession
+        string type_identifiant
+        string specialite
+        string commune
+    }
+
+    DIM_SPECIALITE {
+        int sk_specialite PK
+        string code_specialite
+        string fonction
+        string specialite
+    }
+
+    DIM_MUTUELLE {
+        int sk_mutuelle PK
+        string id_mut
+        string nom
+        string adresse
+        string type_mutuelle
+    }
+
+    DIM_TYPE_ENQUETE {
+        int sk_type_enquete PK
+        string type_enquete
+        int annee_enquete
+        string methodologie
+        string periodicite
+        string description
+    }
+
+    DIM_LOCALISATION {
+        int sk_localisation PK
+        string code_lieu
+        string commune
+        string code_postal
+        string departement
+        string region
+        string pays
+    }
+
+    %% ===== TABLES DE FAITS =====
+    FAIT_CONSULTATION {
+        int sk_temps FK
+        int sk_patient FK
+        int sk_professionnel FK
+        int sk_diagnostic FK
+        int sk_etablissement FK
+        int sk_mutuelle FK
+        int nb_consultations
+        int duree_consultation
+        float cout_consultation
+        string motif_consultation
+    }
+
+    FAIT_HOSPITALISATION {
+        int sk_temps_entree FK
+        int sk_temps_sortie FK
+        int sk_patient FK
+        int sk_etablissement FK
+        int sk_diagnostic FK
+        int nb_hospitalisations
+        int duree_sejour
+        float cout_sejour
+        string service
+        string mode_entree
+        string mode_sortie
+    }
+
+    FAIT_DECES {
+        int sk_temps FK
+        int sk_patient FK
+        int sk_localisation_naissance FK
+        int sk_localisation_deces FK
+        int nb_deces
+        int age_au_deces
+        string numero_acte_deces
+    }
+
+    FAIT_SATISFACTION {
+        int sk_temps FK
+        int sk_etablissement FK
+        int sk_type_enquete FK
+        int nb_reponses
+        float score_global
+        float score_accueil
+        float score_soins
+        float score_chambre
+        float score_repas
+        float score_sortie
+        string niveau_satisfaction
+    }
+
+    %% ===== RELATIONS FAIT_CONSULTATION =====
+    FAIT_CONSULTATION ||--o{ DIM_TEMPS : "sk_temps"
+    FAIT_CONSULTATION ||--o{ DIM_PATIENT : "sk_patient"
+    FAIT_CONSULTATION ||--o{ DIM_PROFESSIONNEL : "sk_professionnel"
+    FAIT_CONSULTATION ||--o{ DIM_DIAGNOSTIC : "sk_diagnostic"
+    FAIT_CONSULTATION ||--o{ DIM_ETABLISSEMENT : "sk_etablissement"
+    FAIT_CONSULTATION ||--o{ DIM_MUTUELLE : "sk_mutuelle"
+
+    %% ===== RELATIONS FAIT_HOSPITALISATION =====
+    FAIT_HOSPITALISATION ||--o{ DIM_TEMPS : "sk_temps_entree"
+    FAIT_HOSPITALISATION ||--o{ DIM_TEMPS : "sk_temps_sortie"
+    FAIT_HOSPITALISATION ||--o{ DIM_PATIENT : "sk_patient"
+    FAIT_HOSPITALISATION ||--o{ DIM_ETABLISSEMENT : "sk_etablissement"
+    FAIT_HOSPITALISATION ||--o{ DIM_DIAGNOSTIC : "sk_diagnostic"
+
+    %% ===== RELATIONS FAIT_DECES =====
+    FAIT_DECES ||--o{ DIM_TEMPS : "sk_temps"
+    FAIT_DECES ||--o{ DIM_PATIENT : "sk_patient"
+    FAIT_DECES ||--o{ DIM_LOCALISATION : "sk_localisation_naissance"
+    FAIT_DECES ||--o{ DIM_LOCALISATION : "sk_localisation_deces"
+
+    %% ===== RELATIONS FAIT_SATISFACTION =====
+    FAIT_SATISFACTION ||--o{ DIM_TEMPS : "sk_temps"
+    FAIT_SATISFACTION ||--o{ DIM_ETABLISSEMENT : "sk_etablissement"
+    FAIT_SATISFACTION ||--o{ DIM_TYPE_ENQUETE : "sk_type_enquete"
+
+    %% ===== RELATIONS INTER-DIMENSIONS =====
+    DIM_PROFESSIONNEL ||--o{ DIM_SPECIALITE : "specialite"

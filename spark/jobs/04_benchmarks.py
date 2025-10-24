@@ -13,6 +13,7 @@ import time
 import json
 import sys
 import logging
+import os
 
 logging.basicConfig(
     level=logging.INFO,
@@ -26,7 +27,8 @@ class BenchmarkRunner:
 
     def __init__(self, spark):
         self.spark = spark
-        self.gold_base = "/home/jovyan/data/gold"
+        data_base = os.getenv("DATA_BASE", "/opt/spark-data")
+        self.gold_base = f"{data_base}/gold"
         self.results = []
 
         self._load_gold_tables()
@@ -278,7 +280,10 @@ class BenchmarkRunner:
 
     def export_results(self):
         """Export benchmark results to JSON"""
-        output_path = "/home/jovyan/data/benchmark_results.json"
+        data_base = os.getenv("DATA_BASE", "/opt/spark-data")
+        output_dir = f"{data_base}/performance"
+        os.makedirs(output_dir, exist_ok=True)
+        output_path = f"{output_dir}/benchmark_results.json"
 
         with open(output_path, 'w') as f:
             json.dump(self.results, f, indent=2)
@@ -306,14 +311,20 @@ class BenchmarkRunner:
 
 def create_spark_session():
     """Create Spark session with optimal configuration"""
-    return SparkSession.builder \
-        .appName("CHU - Performance Benchmarks") \
-        .config("spark.driver.memory", "4g") \
-        .config("spark.executor.memory", "4g") \
-        .config("spark.sql.adaptive.enabled", "true") \
-        .config("spark.sql.adaptive.coalescePartitions.enabled", "true") \
-        .config("spark.sql.autoBroadcastJoinThreshold", "10485760") \
-        .getOrCreate()
+    master = os.getenv("SPARK_MASTER_URL", "local[*]")
+    builder = (
+        SparkSession.builder
+        .appName(os.getenv("SPARK_APP_NAME", "CHU - Performance Benchmarks"))
+        .config("spark.driver.memory", os.getenv("SPARK_DRIVER_MEMORY", "4g"))
+        .config("spark.executor.memory", os.getenv("SPARK_EXECUTOR_MEMORY", "4g"))
+        .config("spark.sql.adaptive.enabled", "true")
+        .config("spark.sql.adaptive.coalescePartitions.enabled", "true")
+        .config("spark.sql.autoBroadcastJoinThreshold", "10485760")
+        .config("spark.jars.packages", os.getenv("SPARK_PACKAGES", "org.postgresql:postgresql:42.7.3"))
+    )
+    if master:
+        builder = builder.master(master)
+    return builder.getOrCreate()
 
 
 def main():

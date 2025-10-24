@@ -52,7 +52,7 @@
     {\large Nejma MOUALHI | Brieuc OLIVIERI | Nicolas TAING}\\[1.5cm]
 
     {\large Formation : CESI FISA A4}\\
-    {\large Année universitaire : 2024-2025}\\[2cm]
+    {\large Année universitaire : 2025-2026}\\[2cm]
 
     {\large Date : Octobre 2025}
     \end{center}
@@ -200,7 +200,7 @@ patient_hash = sha2(
 \textbf{Faits créés} :
 \begin{itemize}
 \item \texttt{fait\_consultation} : 1,027,157 consultations (partitionné année/mois)
-\item \texttt{fait\_hospitalisation} : 82,216 hospitalisations
+\item \texttt{fait\_hospitalisation} : 82,216 hospitalisations (épisodes dérivés des consultations Silver; entrée/sortie/durée)
 \item \texttt{fait\_deces} : 620,625 décès (2019)
 \item \texttt{fait\_satisfaction} : 8 scores E-Satis
 \end{itemize}
@@ -239,7 +239,7 @@ patient_hash = sha2(
 
 \textbf{Tests de cohérence} :
 \begin{itemize}
-\item Dates consultation > dates naissance : 100\%
+\item Dates consultation \textgreater\ dates naissance : 100\%
 \item Âges décès dans plage [0-120] : 99.8\%
 \item Codes CIM-10 valides : 98.7\%
 \end{itemize}
@@ -359,10 +359,10 @@ LIMIT 10
 \textbf{Q3 : Consultations par sexe et âge}
 \begin{lstlisting}[language=SQL, basicstyle=\small\ttfamily]
 SELECT p.sexe,
-       CASE WHEN p.age < 18 THEN '0-17'
-            WHEN p.age < 30 THEN '18-29'
-            WHEN p.age < 50 THEN '30-49'
-            WHEN p.age < 65 THEN '50-64'
+       CASE WHEN p.age \textless\ 18 THEN '0-17'
+            WHEN p.age \textless\ 30 THEN '18-29'
+            WHEN p.age \textless\ 50 THEN '30-49'
+            WHEN p.age \textless\ 65 THEN '50-64'
             ELSE '65+' END as tranche,
        COUNT(*) as nb
 FROM fait_consultation f
@@ -404,7 +404,7 @@ JOIN dim_patient p ON f.id_patient = p.id_patient
 JOIN dim_diagnostic d ON f.code_diag = d.code_diag
 WHERE t.annee BETWEEN 2018 AND 2020
 GROUP BY t.annee, t.trimestre, p.sexe, d.libelle
-HAVING nb > 50
+HAVING nb \textgreater\ 50
 ORDER BY nb DESC
 LIMIT 20
 \end{lstlisting}
@@ -433,9 +433,9 @@ LIMIT 20
 \item Temps médian : 1.20 secondes
 \item Requête la plus rapide : Q5 (0.17s) - filtre temporel avec partition pruning
 \item Requête la plus lente : Q4 (16.5s) - agrégation par spécialité
-\item Excellent (< 1s) : 4 requêtes (44\%)
+\item Excellent (\textless\ 1s) : 4 requêtes (44\%)
 \item Bon (1-5s) : 1 requête (11\%)
-\item Acceptable (> 5s) : 4 requêtes (44\%)
+\item Acceptable (\textgreater\ 5s) : 4 requêtes (44\%)
 \end{itemize}
 
 \textbf{Conclusion} : Les performances démontrent l'efficacité du partitionnement temporel (gain 90x sur Q5). Les requêtes avec filtres temporels obtiennent des temps sub-secondes grâce au partition pruning. Les requêtes complexes multi-jointures restent sous 17 secondes sur 1M+ lignes en mode local.
@@ -450,10 +450,10 @@ LIMIT 20
 \textbf{Configuration} :
 \begin{lstlisting}[language=Python, basicstyle=\small\ttfamily]
 base_env = {
-    "SPARK_MASTER_URL": "local[*]",
+    "SPARK_MASTER_URL": "local[*]", // mode local pour tests, cluster en prod
     "DATA_BASE": "/opt/spark-data",
     "DATA_DIR": "/data/DATA_2024",
-    "SPARK_DRIVER_MEMORY": "4g",
+    "SPARK_DRIVER_MEMORY": "4g", // 8g si l'environnement le permet
     "SPARK_EXECUTOR_MEMORY": "4g",
 }
 \end{lstlisting}
@@ -469,6 +469,31 @@ base_env = {
 \textbf{Dépendances} : bronze → silver → gold → benchmarks
 
 \textbf{Mode d'écriture} : \texttt{overwrite} (idempotence garantie)
+
+\subsection{DAG Pipeline Split (parallélisme)}
+
+\textbf{Fichier} : \texttt{airflow/dags/chu\_pipeline\_split.py}
+
+\textbf{Architecture} : DAG avec TaskGroups permettant l'exécution parallèle des extractions et transformations.
+
+\textbf{TaskGroups définis} :
+\begin{itemize}
+\item \textbf{bronze\_postgres} : 13 tâches parallèles (Patient, Consultation, Diagnostic, Professionnel\_de\_sante, Mutuelle, Adher, Prescription, Medicaments, Laboratoire, Salle, Specialites, date, AAAA)
+\item \textbf{bronze\_csv} : 4 tâches parallèles (etablissement\_sante, satisfaction\_esatis48h\_2019, departements, deces\_2019)
+\item \textbf{silver\_patient}, \textbf{silver\_consultation}, \textbf{silver\_etablissement\_sante}, \textbf{silver\_satisfaction}, \textbf{silver\_deces}, \textbf{silver\_references} : 6 transformations indépendantes
+\item \textbf{gold\_dimensions} : 5 tâches parallèles (dim\_temps, dim\_patient, dim\_diagnostic, dim\_professionnel, dim\_etablissement)
+\item \textbf{gold\_facts} : 4 tâches parallèles (fait\_consultation, fait\_hospitalisation, fait\_deces, fait\_satisfaction)
+\end{itemize}
+
+\textbf{Dépendances} :
+\begin{itemize}
+\item bronze\_postgres + bronze\_csv → silver\_*
+\item silver\_* → gold\_dimensions
+\item gold\_dimensions → gold\_facts
+\item gold\_facts → benchmarks
+\end{itemize}
+
+\textbf{Avantage} : Réduction du temps total d'exécution grâce au parallélisme. Les 13 extractions PostgreSQL s'exécutent simultanément au lieu de séquentiellement.
 
 \subsection{Résultats d'exécution}
 
@@ -579,15 +604,387 @@ Q6 - Multi-dimensions & 16.7 \\
 
 \subsection{Livrables}
 
-Fichiers fournis dans le ZIP :
+Fichiers fournis :
 \begin{itemize}
 \item 4 notebooks Jupyter exécutables
-\item 1 DAG Airflow (\texttt{pipeline\_pyspark\_jobs.py})
-\item 6 graphiques PNG (stats Bronze/Gold, performances, partitionnement)
+\item 2 DAGs Airflow (\texttt{pipeline\_pyspark\_jobs.py}, \texttt{chu\_pipeline\_split.py})
+\item 4 scripts PySpark modulaires (\texttt{01\_extract\_bronze.py}, \texttt{02\_transform\_silver.py}, \texttt{03\_transform\_gold.py}, \texttt{04\_benchmarks.py})
+\item 5 graphiques PNG (stats Bronze/Gold, performances, partitionnement, distribution)
 \item Configuration Docker Compose complète
 \item Ce rapport LaTeX
 \end{itemize}
 
 Le système est opérationnel et prêt pour la visualisation (Livrable 3 - Superset).
+
+\newpage
+\appendix
+\section{Scripts et Code Source}
+
+\subsection{Notebooks Jupyter}
+
+Les notebooks suivants implémentent le pipeline complet :
+
+\subsubsection{01\_Extract\_Bronze\_SOURCES\_DIRECTES.ipynb}
+
+Extraction des données sources (PostgreSQL et CSV) vers la zone Bronze.
+
+\textbf{Localisation} : \texttt{jupyter/notebooks/01\_Extract\_Bronze\_SOURCES\_DIRECTES.ipynb}
+
+\textbf{Fonction} : Connexion JDBC aux 13 tables PostgreSQL, lecture des 4 fichiers CSV (établissements, satisfaction, décès, départements), écriture Parquet non compressé vers \texttt{/data/bronze/}.
+
+\textbf{Durée d'exécution} : 2.1 minutes
+
+\subsubsection{02\_Transform\_Silver\_NETTOYAGE.ipynb}
+
+Nettoyage et pseudonymisation RGPD pour la zone Silver.
+
+\textbf{Localisation} : \texttt{jupyter/notebooks/02\_Transform\_Silver\_NETTOYAGE.ipynb}
+
+\textbf{Fonction} : Application du hachage SHA-256 sur les colonnes nominatives (nom, prénom, NSS), suppression des données sensibles (téléphone, email, adresse), validation des formats, déduplication, normalisation des types, écriture Parquet Snappy vers \texttt{/data/silver/}.
+
+\textbf{Durée d'exécution} : 3.2 minutes
+
+\subsubsection{03\_Transform\_Gold\_STAR\_SCHEMA\_WORKING.ipynb}
+
+Construction du modèle dimensionnel pour la zone Gold.
+
+\textbf{Localisation} : \texttt{jupyter/notebooks/03\_Transform\_Gold\_STAR\_SCHEMA\_WORKING.ipynb}
+
+\textbf{Fonction} : Création des 5 dimensions (temps, patient, diagnostic, professionnel, établissement) et 4 tables de faits (consultation, hospitalisation, décès, satisfaction). Application du partitionnement temporel sur les faits. Écriture Parquet Snappy partitionné vers \texttt{/data/gold/}.
+
+\textbf{Durée d'exécution} : 2.8 minutes
+
+\subsubsection{04\_Performance\_Benchmarks\_CLEAN.ipynb}
+
+Mesure des performances et génération des graphiques.
+
+\textbf{Localisation} : \texttt{jupyter/notebooks/04\_Performance\_Benchmarks\_CLEAN.ipynb}
+
+\textbf{Fonction} : Exécution des 9 requêtes de référence avec mesure de temps (3 runs par requête, médiane retenue), calcul des métriques (min, max, avg, écart-type), génération des graphiques de performance, export JSON des résultats.
+
+\textbf{Durée d'exécution} : 1.8 minutes
+
+\subsection{DAGs Airflow}
+
+Deux DAGs orchestrent le pipeline complet :
+
+\subsubsection{pipeline\_pyspark\_jobs.py}
+
+DAG séquentiel exécutant les 4 jobs PySpark.
+
+\textbf{Localisation} : \texttt{airflow/dags/pipeline\_pyspark\_jobs.py}
+
+\textbf{Structure} :
+\begin{itemize}
+\item Task 1 : \texttt{bronze\_extract} → lance \texttt{01\_extract\_bronze.py}
+\item Task 2 : \texttt{silver\_transform} → lance \texttt{02\_transform\_silver.py}
+\item Task 3 : \texttt{gold\_transform} → lance \texttt{03\_transform\_gold.py}
+\item Task 4 : \texttt{benchmarks} → lance \texttt{04\_benchmarks.py}
+\end{itemize}
+
+\textbf{Dépendances} : bronze → silver → gold → benchmarks
+
+\textbf{Configuration} : Mode local[*], 8G RAM driver/executor, variables d'environnement pour chemins de données et connexions.
+
+\subsubsection{chu\_pipeline\_split.py}
+
+DAG avec TaskGroups permettant l'exécution parallèle des extractions Bronze.
+
+\textbf{Localisation} : \texttt{airflow/dags/chu\_pipeline\_split.py}
+
+\textbf{Structure} :
+\begin{itemize}
+\item TaskGroup \texttt{bronze\_postgres} : 13 tâches parallèles (1 par table)
+\item TaskGroup \texttt{bronze\_csv} : 4 tâches parallèles (1 par fichier CSV)
+\item TaskGroup \texttt{gold\_dimensions} : 5 tâches parallèles (1 par dimension)
+\item TaskGroup \texttt{gold\_facts} : 4 tâches parallèles (1 par fait)
+\end{itemize}
+
+\textbf{Avantage} : Exploitation du parallélisme pour réduire le temps total d'exécution.
+
+\subsection{Jobs PySpark}
+
+Les scripts Python autonomes exécutés par les DAGs :
+
+\subsubsection{01\_extract\_bronze.py}
+
+Script d'extraction modulaire avec arguments CLI.
+
+\textbf{Localisation} : \texttt{spark/jobs/01\_extract\_bronze.py}
+
+\textbf{Arguments} :
+\begin{itemize}
+\item \texttt{--postgres-table TABLE} : extrait une table PostgreSQL spécifique
+\item \texttt{--csv-source SOURCE} : extrait un fichier CSV spécifique
+\end{itemize}
+
+\textbf{Exemple} : \texttt{python 01\_extract\_bronze.py --postgres-table Patient}
+
+\subsubsection{02\_transform\_silver.py}
+
+Script de transformation modulaire avec sujets.
+
+\textbf{Localisation} : \texttt{spark/jobs/02\_transform\_silver.py}
+
+\textbf{Arguments} :
+\begin{itemize}
+\item \texttt{--subject patient} : transforme les données patient
+\item \texttt{--subject consultation} : transforme les consultations
+\item \texttt{--subject etablissement\_sante} : transforme les établissements
+\item \texttt{--subject satisfaction} : transforme les scores satisfaction
+\item \texttt{--subject deces} : transforme les décès
+\item \texttt{--subject references} : transforme les référentiels (diagnostic, spécialités)
+\end{itemize}
+
+\textbf{Exemple} : \texttt{python 02\_transform\_silver.py --subject patient}
+
+\subsubsection{03\_transform\_gold.py}
+
+Script de construction du modèle dimensionnel.
+
+\textbf{Localisation} : \texttt{spark/jobs/03\_transform\_gold.py}
+
+\textbf{Fonction} : Création séquentielle des 5 dimensions puis des 4 faits. Application du partitionnement temporel sur \texttt{fait\_consultation}, \texttt{fait\_hospitalisation}, \texttt{fait\_deces}.
+
+\textbf{Exécution} : \texttt{python 03\_transform\_gold.py}
+
+\subsubsection{04\_benchmarks.py}
+
+Script d'évaluation des performances.
+
+\textbf{Localisation} : \texttt{spark/jobs/04\_benchmarks.py}
+
+\textbf{Fonction} : Enregistrement des tables Gold en vues Spark SQL temporaires, exécution de 9 requêtes SQL de benchmark, mesure des temps min/max/avg sur 3 runs, génération des graphiques (barplot, distribution, évolution), export JSON.
+
+\textbf{Exécution} : \texttt{python 04\_benchmarks.py}
+
+\subsection{Structure des répertoires}
+
+\begin{verbatim}
+projet_git/
+  airflow/
+    dags/
+      chu_pipeline_split.py
+      pipeline_pyspark_jobs.py
+  spark/
+    jobs/
+      01_extract_bronze.py
+      02_transform_silver.py
+      03_transform_gold.py
+      04_benchmarks.py
+  jupyter/
+    notebooks/
+      01_Extract_Bronze_SOURCES_DIRECTES.ipynb
+      02_Transform_Silver_NETTOYAGE.ipynb
+      03_Transform_Gold_STAR_SCHEMA_WORKING.ipynb
+      04_Performance_Benchmarks_CLEAN.ipynb
+  data/
+    bronze/     (Parquet - 1.2 GB)
+    silver/     (Parquet Snappy - 950 MB)
+    gold/       (Parquet Snappy partitionne - 600 MB)
+  docker-compose.yml
+  livrable2/
+    livrable2.tex
+    livrable2.pdf
+\end{verbatim}
+
+\subsection{Instructions d'exécution}
+
+\subsubsection{Lancement de l'environnement}
+
+\begin{verbatim}
+# Démarrage des conteneurs Docker
+docker compose up -d
+
+# Vérification des services
+docker ps
+
+# Services actifs :
+# - PostgreSQL (chu_postgres:5432)
+# - Spark Master (chu-spark-master:8081)
+# - Spark Worker (chu_spark_worker:8081)
+# - Jupyter Lab (localhost:8888)
+# - Airflow Webserver (localhost:8080)
+# - MinIO (localhost:9001)
+# - Superset (localhost:8088)
+\end{verbatim}
+
+\subsubsection{Exécution manuelle des notebooks}
+
+\begin{verbatim}
+# Accès Jupyter Lab
+http://localhost:8888
+
+# Exécution séquentielle :
+1. 01_Extract_Bronze_SOURCES_DIRECTES.ipynb
+2. 02_Transform_Silver_NETTOYAGE.ipynb
+3. 03_Transform_Gold_STAR_SCHEMA_WORKING.ipynb
+4. 04_Performance_Benchmarks_CLEAN.ipynb
+\end{verbatim}
+
+\subsubsection{Exécution via Airflow}
+
+\begin{verbatim}
+# Accès Airflow UI
+http://localhost:8080
+Login: admin / admin123
+
+# Activation du DAG
+DAGs \textgreater\ chu_pipeline_split \textgreater\ Toggle ON
+Trigger DAG (bouton Play)
+
+# Suivi de l'exécution
+Graph View : visualisation des dépendances
+Task Logs : consultation des logs
+\end{verbatim}
+
+\subsubsection{Exécution manuelle des scripts PySpark}
+
+\begin{verbatim}
+# Connexion au conteneur Spark Master
+docker exec -it chu-spark-master bash
+
+# Exécution directe
+python /opt/spark-apps/01_extract_bronze.py
+python /opt/spark-apps/02_transform_silver.py
+python /opt/spark-apps/03_transform_gold.py
+python /opt/spark-apps/04_benchmarks.py
+
+# Ou via spark-submit (mode cluster)
+spark-submit --master spark://chu-spark-master:7077 \
+  --driver-memory 8g \
+  --executor-memory 8g \
+  /opt/spark-apps/01_extract_bronze.py
+\end{verbatim}
+
+\newpage
+\section{Extraits de Code Source}
+
+\subsection{Notebook 01 - Extract Bronze}
+
+\textbf{Configuration Spark et connexion PostgreSQL} :
+\begin{lstlisting}[language=Python, basicstyle=\tiny\ttfamily, breaklines=true]
+spark = SparkSession.builder \
+    .appName("CHU_Bronze_Extract") \
+    .master("local[*]") \
+    .config("spark.driver.memory", "8g") \
+    .config("spark.executor.memory", "8g") \
+    .config("spark.jars", "/opt/spark/jars/postgresql-42.7.1.jar") \
+    .getOrCreate()
+
+jdbc_url = "jdbc:postgresql://chu_postgres:5432/healthcare_data"
+jdbc_properties = {
+    "user": "admin",
+    "password": "admin123",
+    "driver": "org.postgresql.Driver"
+}
+
+# Extraction table PostgreSQL
+df_patient = spark.read.jdbc(jdbc_url, "Patient", properties=jdbc_properties)
+df_patient.write.mode("overwrite").parquet("/home/jovyan/data/bronze/postgres/Patient")
+
+# Extraction CSV
+df_deces = spark.read.csv("/home/jovyan/data/DATA_2024/deces-2019.csv",
+                          header=True, inferSchema=True, sep=";")
+df_deces.write.mode("overwrite").parquet("/home/jovyan/data/bronze/csv/deces")
+\end{lstlisting}
+
+\subsection{Notebook 02 - Transform Silver}
+
+\textbf{Pseudonymisation RGPD SHA-256} :
+\begin{lstlisting}[language=Python, basicstyle=\tiny\ttfamily, breaklines=true]
+from pyspark.sql.functions import sha2, concat_ws, col, lit
+
+# Hachage nom + prenom + date_naissance avec sel
+patient_clean = df_patient.withColumn(
+    "nom_hash",
+    sha2(concat_ws("_", col("nom"), lit("chu_secret_salt_2025")), 256)
+).withColumn(
+    "prenom_hash",
+    sha2(concat_ws("_", col("prenom"), lit("chu_secret_salt_2025")), 256)
+).drop("nom", "prenom", "telephone", "email", "adresse", "numero_secu")
+
+patient_clean.write.mode("overwrite") \
+    .option("compression", "snappy") \
+    .parquet("/home/jovyan/data/silver/patient")
+\end{lstlisting}
+
+\subsection{Notebook 03 - Transform Gold}
+
+\textbf{Création dimension temps} :
+\begin{lstlisting}[language=Python, basicstyle=\tiny\ttfamily, breaklines=true]
+from datetime import datetime, timedelta
+
+dates = []
+current = datetime(2013, 1, 1)
+end = datetime(2025, 12, 31)
+
+while current <= end:
+    dates.append((
+        current.strftime("%Y%m%d"),
+        current,
+        current.year,
+        current.month,
+        (current.month - 1) // 3 + 1,
+        current.strftime("%A"),
+        current.weekday() >= 5
+    ))
+    current += timedelta(days=1)
+
+dim_temps = spark.createDataFrame(dates, schema=schema_temps)
+dim_temps.write.mode("overwrite").parquet("/home/jovyan/data/gold/dim_temps")
+\end{lstlisting}
+
+\textbf{Fait consultation avec partitionnement} :
+\begin{lstlisting}[language=Python, basicstyle=\tiny\ttfamily, breaklines=true]
+fait_consultation = df_consultation.select(
+    col("id_consultation"),
+    col("id_patient"),
+    col("id_professionnel").alias("id_prof"),
+    col("id_diagnostic").alias("code_diag"),
+    date_format(col("date_consultation"), "yyyyMMdd").alias("id_temps"),
+    col("annee"),
+    col("mois")
+)
+
+fait_consultation.write.mode("overwrite") \
+    .partitionBy("annee", "mois") \
+    .parquet("/home/jovyan/data/gold/fait_consultation")
+\end{lstlisting}
+
+\subsection{Notebook 04 - Performance Benchmarks}
+
+\textbf{Mesure de performance avec 3 runs} :
+\begin{lstlisting}[language=Python, basicstyle=\tiny\ttfamily, breaklines=true]
+import time
+import statistics
+
+queries = {
+    "Q1_consultations_annee": """
+        SELECT t.annee, COUNT(*) as nb
+        FROM fait_consultation f
+        JOIN dim_temps t ON f.id_temps = t.id_temps
+        GROUP BY t.annee ORDER BY t.annee
+    """
+}
+
+results = []
+for name, sql in queries.items():
+    times = []
+    for run in range(3):
+        start = time.time()
+        df = spark.sql(sql)
+        df.count()
+        elapsed = time.time() - start
+        times.append(elapsed)
+
+    results.append({
+        "query": name,
+        "min": min(times),
+        "max": max(times),
+        "avg": statistics.mean(times),
+        "median": statistics.median(times)
+    })
+\end{lstlisting}
 
 \end{document}

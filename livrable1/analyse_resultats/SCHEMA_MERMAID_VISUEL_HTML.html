@@ -1,0 +1,302 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Modèle Décisionnel CHU - Schéma Interactif</title>
+    <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+        }
+
+        .container {
+            max-width: 1800px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 15px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            padding: 40px;
+        }
+
+        h1 {
+            text-align: center;
+            color: #2c3e50;
+            margin-bottom: 10px;
+            font-size: 2.5em;
+        }
+
+        .subtitle {
+            text-align: center;
+            color: #7f8c8d;
+            margin-bottom: 30px;
+            font-size: 1.1em;
+        }
+
+        .legend {
+            display: flex;
+            justify-content: center;
+            gap: 30px;
+            margin-bottom: 30px;
+            padding: 20px;
+            background: #f8f9fa;
+            border-radius: 10px;
+        }
+
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 10px 20px;
+            border-radius: 8px;
+            background: white;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+
+        .legend-color {
+            width: 40px;
+            height: 40px;
+            border-radius: 5px;
+            border: 2px solid #ddd;
+        }
+
+        .legend-color.dim-commune { background: #E3F2FD; }
+        .legend-color.dim-specifique { background: #E8F5E9; }
+        .legend-color.fait { background: #FFF3E0; }
+
+        .legend-text {
+            font-weight: 600;
+            color: #2c3e50;
+        }
+
+        .mermaid-container {
+            background: white;
+            border: 2px solid #e0e0e0;
+            border-radius: 10px;
+            padding: 30px;
+            overflow-x: auto;
+        }
+
+        .stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px;
+            margin-top: 30px;
+        }
+
+        .stat-card {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 20px;
+            border-radius: 10px;
+            text-align: center;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+        }
+
+        .stat-number {
+            font-size: 3em;
+            font-weight: bold;
+            margin-bottom: 5px;
+        }
+
+        .stat-label {
+            font-size: 0.9em;
+            opacity: 0.9;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🏥 Modèle Décisionnel CHU</h1>
+        <p class="subtitle">Cloud Healthcare Unit - Architecture Big Data en Constellation d'Étoiles</p>
+
+        <div class="legend">
+            <div class="legend-item">
+                <div class="legend-color dim-commune"></div>
+                <span class="legend-text">Dimensions Communes</span>
+            </div>
+            <div class="legend-item">
+                <div class="legend-color dim-specifique"></div>
+                <span class="legend-text">Dimensions Spécifiques</span>
+            </div>
+            <div class="legend-item">
+                <div class="legend-color fait"></div>
+                <span class="legend-text">Tables de Faits</span>
+            </div>
+        </div>
+
+        <div class="mermaid-container">
+            <div class="mermaid">
+%%{init: {
+  'theme': 'base',
+  'themeVariables': {
+    'primaryColor': '#E3F2FD',
+    'primaryTextColor': '#1976D2',
+    'primaryBorderColor': '#1976D2',
+    'secondaryColor': '#E8F5E9',
+    'secondaryTextColor': '#388E3C',
+    'secondaryBorderColor': '#388E3C',
+    'tertiaryColor': '#FFF3E0',
+    'tertiaryTextColor': '#E65100',
+    'tertiaryBorderColor': '#E65100',
+    'lineColor': '#757575',
+    'fontSize': '14px',
+    'fontFamily': 'Segoe UI'
+  }
+}}%%
+
+erDiagram
+    %% DIMENSIONS COMMUNES
+    DIM_TEMPS {
+        int sk_temps PK
+        date date_complete
+        int annee
+        int trimestre
+        int mois
+        varchar mois_libelle
+    }
+
+    DIM_PATIENT {
+        int sk_patient PK
+        varchar patient_pseudo_id
+        char sexe
+        int age
+        varchar tranche_age
+        varchar groupe_sanguin
+    }
+
+    DIM_DIAGNOSTIC {
+        int sk_diagnostic PK
+        varchar code_diag
+        varchar libelle_diagnostic
+        varchar chapitre_cim10
+        varchar gravite
+    }
+
+    DIM_ETABLISSEMENT {
+        int sk_etablissement PK
+        varchar finess
+        varchar nom_etablissement
+        varchar commune
+        varchar region
+    }
+
+    %% DIMENSIONS SPECIFIQUES
+    DIM_PROFESSIONNEL {
+        int sk_professionnel PK
+        varchar prof_pseudo_id
+        varchar profession
+        varchar specialite
+    }
+
+    DIM_SPECIALITE {
+        int sk_specialite PK
+        varchar code_specialite
+        varchar specialite
+    }
+
+    DIM_MUTUELLE {
+        int sk_mutuelle PK
+        varchar id_mut
+        varchar nom
+    }
+
+    DIM_TYPE_ENQUETE {
+        int sk_type_enquete PK
+        varchar type_enquete
+        int annee_enquete
+    }
+
+    %% TABLES DE FAITS
+    FAIT_CONSULTATION {
+        int sk_temps FK
+        int sk_patient FK
+        int sk_professionnel FK
+        int sk_diagnostic FK
+        int sk_etablissement FK
+        int sk_mutuelle FK
+        int nb_consultations
+    }
+
+    FAIT_HOSPITALISATION {
+        int sk_temps_entree FK
+        int sk_temps_sortie FK
+        int sk_patient FK
+        int sk_etablissement FK
+        int sk_diagnostic FK
+        int duree_sejour
+    }
+
+    FAIT_DECES {
+        int sk_temps FK
+        int sk_patient FK
+        int nb_deces
+    }
+
+    FAIT_SATISFACTION_PATIENT {
+        int sk_temps FK
+        int sk_etablissement FK
+        int sk_type_enquete FK
+        int nb_reponses
+        decimal score_global
+    }
+
+    %% RELATIONS
+    FAIT_CONSULTATION }o--|| DIM_TEMPS : ""
+    FAIT_CONSULTATION }o--|| DIM_PATIENT : ""
+    FAIT_CONSULTATION }o--|| DIM_PROFESSIONNEL : ""
+    FAIT_CONSULTATION }o--|| DIM_DIAGNOSTIC : ""
+    FAIT_CONSULTATION }o--|| DIM_ETABLISSEMENT : ""
+    FAIT_CONSULTATION }o--|| DIM_MUTUELLE : ""
+
+    FAIT_HOSPITALISATION }o--|| DIM_TEMPS : ""
+    FAIT_HOSPITALISATION }o--|| DIM_PATIENT : ""
+    FAIT_HOSPITALISATION }o--|| DIM_ETABLISSEMENT : ""
+    FAIT_HOSPITALISATION }o--|| DIM_DIAGNOSTIC : ""
+
+    FAIT_DECES }o--|| DIM_TEMPS : ""
+    FAIT_DECES }o--|| DIM_PATIENT : ""
+
+    FAIT_SATISFACTION_PATIENT }o--|| DIM_TEMPS : ""
+    FAIT_SATISFACTION_PATIENT }o--|| DIM_ETABLISSEMENT : ""
+    FAIT_SATISFACTION_PATIENT }o--|| DIM_TYPE_ENQUETE : ""
+
+    DIM_PROFESSIONNEL }o--|| DIM_SPECIALITE : ""
+            </div>
+        </div>
+
+        <div class="stats">
+            <div class="stat-card">
+                <div class="stat-number">8</div>
+                <div class="stat-label">Dimensions</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-number">4</div>
+                <div class="stat-label">Tables de Faits</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-number">82</div>
+                <div class="stat-label">Attributs Totaux</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-number">1M+</div>
+                <div class="stat-label">Lignes Consultations</div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        mermaid.initialize({
+            startOnLoad: true,
+            theme: 'base',
+            themeVariables: {
+                fontSize: '14px'
+            }
+        });
+    </script>
+</body>
+</html>

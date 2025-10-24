@@ -1,0 +1,328 @@
+
+% ============================================================
+% RAPPORT D'ANALYSE AUTOMATIQUE - MODÈLE DÉCISIONNEL CHU
+% Généré le 13/10/2025 à 16:03:10
+% ============================================================
+
+\section{Annexe : Analyse automatique des sources de données}
+
+\subsection{Résumé des fichiers CSV analysés}
+
+Le système a identifié \textbf{32 fichiers CSV} répartis dans les catégories suivantes :
+
+\begin{itemize}[leftmargin=*]
+    \item \textbf{Décès} : 1 fichiers (1907.3 MB)
+    \item \textbf{Référentiels} : 3 fichiers (203.5 MB)
+    \item \textbf{Hospitalisation} : 1 fichiers (0.2 MB)
+    \item \textbf{Satisfaction} : 27 fichiers (5.0 MB)
+\end{itemize}
+
+\subsection{Tables PostgreSQL identifiées}
+
+\begin{table}[H]
+\centering
+\caption{Tables PostgreSQL sources}
+\begin{tabularx}{\textwidth}{|l|c|X|}
+\hline
+\textbf{Table} & \textbf{Colonnes} & \textbf{Volume estimé} \\
+\hline
+Patient & 16 & 100,000 \\
+\hline
+Consultation & 5 & 1,027,157 \\
+\hline
+Professionnel_de_sante & 8 & 1,048,575 \\
+\hline
+Diagnostic & 2 & 15,490 \\
+\hline
+Specialites & 3 & N/A \\
+\hline
+Mutuelle & 3 & N/A \\
+\hline
+Adher & 2 & N/A \\
+\hline
+\end{tabularx}
+\end{table}
+
+\subsection{Dimensions du modèle décisionnel}
+
+Le modèle comprend \textbf{9 dimensions} :
+
+\subsubsection{DIM_TEMPS}
+
+\textbf{Rôle} : Axe temporel unifié pour toutes les analyses chronologiques
+
+\textbf{Type} : dimension commune
+
+\textbf{Source} : Générée automatiquement (2014-2025)
+
+\textbf{Attributs} (11) :
+\begin{itemize}[leftmargin=*]
+    \item \texttt{sk_temps} : Clé surrogate (PK)
+    \item \texttt{date_complete} : Date complète (YYYY-MM-DD)
+    \item \texttt{annee} : Année (2014-2025)
+    \item \texttt{trimestre} : Trimestre (Q1-Q4)
+    \item \texttt{mois} : Mois (1-12)
+    \item \textit{... et 6 autres attributs}
+\end{itemize}
+
+\subsubsection{DIM_PATIENT}
+
+\textbf{Rôle} : Démographie pseudonymisée des patients pour analyses épidémiologiques
+
+\textbf{Type} : dimension commune
+
+\textbf{Source} : Table PostgreSQL 'Patient' après pseudonymisation T1
+
+\textbf{Attributs} (13) :
+\begin{itemize}[leftmargin=*]
+    \item \texttt{sk_patient} : Clé surrogate (PK)
+    \item \texttt{patient_pseudo_id} : Identifiant pseudonymisé (SHA-256 + sel)
+    \item \texttt{sexe} : Sexe (M/F)
+    \item \texttt{age_a_la_consultation} : Âge calculé à la date de l'événement
+    \item \texttt{tranche_age} : Catégorie d'âge (0-18, 19-65, 65+)
+    \item \textit{... et 8 autres attributs}
+\end{itemize}
+
+\subsubsection{DIM_PROFESSIONNEL}
+
+\textbf{Rôle} : Référentiel des praticiens pour analyses d'activité et répartition
+
+\textbf{Type} : dimension specifique
+
+\textbf{Source} : Table PostgreSQL 'Professionnel_de_sante' + CSV 'professionnel_sante.csv'
+
+\textbf{Attributs} (8) :
+\begin{itemize}[leftmargin=*]
+    \item \texttt{sk_professionnel} : Clé surrogate (PK)
+    \item \texttt{prof_pseudo_id} : Identifiant pseudonymisé
+    \item \texttt{civilite} : Civilité (M., Mme)
+    \item \texttt{categorie_professionnelle} : Catégorie (Civil, etc.)
+    \item \texttt{profession} : Profession exercée
+    \item \textit{... et 3 autres attributs}
+\end{itemize}
+
+\subsubsection{DIM_DIAGNOSTIC}
+
+\textbf{Rôle} : Classification médicale enrichie CIM-10 pour analyses pathologiques
+
+\textbf{Type} : dimension commune
+
+\textbf{Source} : Table PostgreSQL 'Diagnostic' + Référentiel CIM-10 OMS
+
+\textbf{Attributs} (7) :
+\begin{itemize}[leftmargin=*]
+    \item \texttt{sk_diagnostic} : Clé surrogate (PK)
+    \item \texttt{code_diag} : Code CIM-10 (ex: S02800, Q902, R192)
+    \item \texttt{libelle_diagnostic} : Description complète du diagnostic
+    \item \texttt{code_cim10_3car} : Code CIM-10 3 caractères (chapitre)
+    \item \texttt{chapitre_cim10} : Chapitre CIM-10 (ex: Chapitre XIX - Lésions traumatiques)
+    \item \textit{... et 2 autres attributs}
+\end{itemize}
+
+\subsubsection{DIM_ETABLISSEMENT}
+
+\textbf{Rôle} : Référentiel géographique et administratif des structures de santé
+
+\textbf{Type} : dimension commune
+
+\textbf{Source} : CSV 'etablissement_sante.csv' (78 MB, référentiel FINESS national)
+
+\textbf{Attributs} (12) :
+\begin{itemize}[leftmargin=*]
+    \item \texttt{sk_etablissement} : Clé surrogate (PK)
+    \item \texttt{finess} : Identifiant FINESS (ex: F010000024)
+    \item \texttt{identifiant_organisation} : Identifiant organisation
+    \item \texttt{nom_etablissement} : Raison sociale (ex: CH DE FLEYRIAT)
+    \item \texttt{commune} : Commune de l'établissement
+    \item \textit{... et 7 autres attributs}
+\end{itemize}
+
+\subsubsection{DIM_SPECIALITE}
+
+\textbf{Rôle} : Classification des spécialités médicales
+
+\textbf{Type} : dimension specifique
+
+\textbf{Source} : Table PostgreSQL 'Specialites'
+
+\textbf{Attributs} (4) :
+\begin{itemize}[leftmargin=*]
+    \item \texttt{sk_specialite} : Clé surrogate (PK)
+    \item \texttt{code_specialite} : Code officiel de la spécialité
+    \item \texttt{fonction} : Fonction du spécialiste
+    \item \texttt{specialite} : Libellé de la spécialité
+\end{itemize}
+
+\subsubsection{DIM_MUTUELLE}
+
+\textbf{Rôle} : Classification des organismes complémentaires pour analyses de couverture sociale
+
+\textbf{Type} : dimension specifique
+
+\textbf{Source} : Tables PostgreSQL 'Mutuelle' + 'Adher'
+
+\textbf{Attributs} (5) :
+\begin{itemize}[leftmargin=*]
+    \item \texttt{sk_mutuelle} : Clé surrogate (PK)
+    \item \texttt{id_mut} : Identifiant mutuelle
+    \item \texttt{nom} : Nom de la mutuelle
+    \item \texttt{adresse} : Adresse de la mutuelle
+    \item \texttt{type_mutuelle} : Type (Nationale, Régionale, Entreprise)
+\end{itemize}
+
+\subsubsection{DIM_TYPE_ENQUETE}
+
+\textbf{Rôle} : Classification des méthodologies d'enquêtes satisfaction
+
+\textbf{Type} : dimension specifique
+
+\textbf{Source} : Fichiers CSV multiples dans 'Satisfaction/' (2014-2020)
+
+\textbf{Attributs} (6) :
+\begin{itemize}[leftmargin=*]
+    \item \texttt{sk_type_enquete} : Clé surrogate (PK)
+    \item \texttt{type_enquete} : Type (ESATIS48H, ESATISCA, IQSS, DPA, RCP)
+    \item \texttt{annee_enquete} : Année de l'enquête (2014-2020)
+    \item \texttt{methodologie} : Méthodologie (Questionnaire post-sortie, Audit clinique)
+    \item \texttt{periodicite} : Périodicité (Annuelle, Continue, Ponctuelle)
+    \item \textit{... et 1 autres attributs}
+\end{itemize}
+
+\subsubsection{DIM_LOCALISATION}
+
+\textbf{Rôle} : Géographie détaillée pour analyses territoriales des décès
+
+\textbf{Type} : dimension specifique
+
+\textbf{Source} : CSV 'deces.csv' + Référentiel géographique INSEE
+
+\textbf{Attributs} (7) :
+\begin{itemize}[leftmargin=*]
+    \item \texttt{sk_localisation} : Clé surrogate (PK)
+    \item \texttt{code_lieu} : Code lieu (naissance ou décès)
+    \item \texttt{commune} : Nom de la commune
+    \item \texttt{code_postal} : Code postal
+    \item \texttt{departement} : Département
+    \item \textit{... et 2 autres attributs}
+\end{itemize}
+
+\subsection{Tables de faits}
+
+Le modèle comprend \textbf{4 tables de faits} :
+
+\subsubsection{FAIT_CONSULTATION}
+
+\textbf{Processus métier} : Activité ambulatoire et suivi patient
+
+\textbf{Granularité} : Une ligne = une consultation médicale individuelle
+
+\textbf{Source} : Table PostgreSQL 'Consultation' (1,027,157 lignes)
+
+\textbf{Dimensions liées} :
+\begin{itemize}[leftmargin=*]
+    \item DIM_TEMPS (date consultation)
+    \item DIM_PATIENT (patient consulté)
+    \item DIM_PROFESSIONNEL (praticien)
+    \item DIM_DIAGNOSTIC (pathologie diagnostiquée)
+    \item DIM_ETABLISSEMENT (lieu consultation)
+    \item DIM_MUTUELLE (couverture sociale)
+\end{itemize}
+
+\textbf{Mesures} :
+\begin{itemize}[leftmargin=*]
+    \item \texttt{nb_consultations} : Compteur (toujours = 1, agrégeable)
+    \item \texttt{duree_consultation} : Durée en minutes (peut être calculée/estimée)
+    \item \texttt{cout_consultation} : Coût en euros (peut nécessiter enrichissement)
+    \item \texttt{motif_consultation} : Motif (Urgence, Contrôle, Premier recours) - attribut descriptif
+\end{itemize}
+
+\subsubsection{FAIT_HOSPITALISATION}
+
+\textbf{Processus métier} : Séjours hospitaliers avec suivi de durée et coûts
+
+\textbf{Granularité} : Une ligne = un séjour hospitalier complet (entrée → sortie)
+
+\textbf{Source} : CSV 'Hospitalisations.csv' (2,481 lignes, période 2016-2020)
+
+\textbf{Dimensions liées} :
+\begin{itemize}[leftmargin=*]
+    \item DIM_TEMPS (date entrée et date sortie)
+    \item DIM_PATIENT (patient hospitalisé)
+    \item DIM_ETABLISSEMENT (établissement d'accueil)
+    \item DIM_DIAGNOSTIC (diagnostic principal)
+\end{itemize}
+
+\textbf{Mesures} :
+\begin{itemize}[leftmargin=*]
+    \item \texttt{nb_hospitalisations} : Compteur (= 1, agrégeable)
+    \item \texttt{duree_sejour} : Durée en jours (colonne 'Jour_Hospitalisation')
+    \item \texttt{cout_sejour} : Coût total en euros (peut nécessiter enrichissement)
+    \item \texttt{service} : Service d'hospitalisation (Cardiologie, Chirurgie, etc.) - attribut descriptif
+    \item \texttt{mode_entree} : Mode d'entrée (Urgence, Programmé, Transfert)
+    \item \texttt{mode_sortie} : Mode de sortie (Domicile, Transfert, Décès)
+\end{itemize}
+
+\subsubsection{FAIT_DECES}
+
+\textbf{Processus métier} : Mortalité et épidémiologie des causes de décès
+
+\textbf{Granularité} : Une ligne = un décès individuel
+
+\textbf{Source} : CSV 'deces.csv' (1.9 GB, données nationales)
+
+\textbf{Dimensions liées} :
+\begin{itemize}[leftmargin=*]
+    \item DIM_TEMPS (date décès)
+    \item DIM_PATIENT (décédé - enrichi avec données décès)
+    \item DIM_LOCALISATION (lieu naissance et lieu décès)
+\end{itemize}
+
+\textbf{Mesures} :
+\begin{itemize}[leftmargin=*]
+    \item \texttt{nb_deces} : Compteur (= 1, agrégeable pour taux mortalité)
+    \item \texttt{age_au_deces} : Âge au décès (calculé depuis date_naissance)
+    \item \texttt{numero_acte_deces} : Référence administrative
+\end{itemize}
+
+\subsubsection{FAIT_SATISFACTION}
+
+\textbf{Processus métier} : Évaluation qualité perçue par les patients hospitalisés
+
+\textbf{Granularité} : Une ligne = résultats agrégés d'enquête par établissement et période
+
+\textbf{Source} : Multiples CSV dans 'Satisfaction/' (2014-2020, formats hétérogènes)
+
+\textbf{Dimensions liées} :
+\begin{itemize}[leftmargin=*]
+    \item DIM_TEMPS (période enquête)
+    \item DIM_ETABLISSEMENT (hôpital évalué)
+    \item DIM_TYPE_ENQUETE (méthodologie utilisée)
+\end{itemize}
+
+\textbf{Mesures} :
+\begin{itemize}[leftmargin=*]
+    \item \texttt{nb_reponses} : Nombre de questionnaires valides (représentativité)
+    \item \texttt{score_global} : Note globale (/100, indicateur synthétique)
+    \item \texttt{score_accueil} : Score accueil (/100)
+    \item \texttt{score_soins} : Score qualité des soins (/100)
+    \item \texttt{score_chambre} : Score confort chambre (/100)
+    \item \texttt{score_repas} : Score restauration (/100)
+    \item \texttt{score_sortie} : Score organisation sortie (/100)
+    \item \texttt{niveau_satisfaction} : Classement national (A, B, C, D)
+\end{itemize}
+
+\subsection{Enrichissements identifiés}
+
+Le système a identifié \textbf{8 enrichissements nécessaires} :
+
+\begin{enumerate}[leftmargin=*]
+    \item \textbf{Enrichissement CIM-10} : Ajouter chapitres, catégories et gravité aux 15,490 codes diagnostics
+    \item \textbf{Enrichissement FINESS} : Mapper les codes FINESS avec noms, adresses, régions et types d'établissements
+    \item \textbf{Enrichissement Géographique} : Calculer les régions depuis les codes postaux, enrichir les localisations de décès
+    \item \textbf{Fusion professionnels de santé} : Fusionner les données PostgreSQL avec le référentiel national CSV pour complétude
+    \item \textbf{Harmonisation enquêtes satisfaction} : Harmoniser les formats hétérogènes, pivoter les données, normaliser les scores
+    \item \textbf{Calcul BMI} : Calculer l'indice de masse corporelle : BMI = poid / (taille/100)²
+    \item \textbf{Calcul tranche d'âge} : Catégoriser les patients : 0-18 (pédiatrie), 19-65 (adulte), 65+ (gériatrie)
+    \item \textbf{Calcul durée séjour} : Calculer date_sortie = Date_Entree + Jour_Hospitalisation pour jointure DIM_TEMPS
+\end{enumerate}
+

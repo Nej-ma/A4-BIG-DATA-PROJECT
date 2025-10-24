@@ -120,10 +120,10 @@ services:
   spark-master:
     image: apache/spark:3.4.0
     container_name: chu_spark_master
-    hostname: chu_spark_master
+    hostname: chu-spark-master
     environment:
       - SPARK_MODE=master
-      - SPARK_MASTER_HOST=chu_spark_master
+      - SPARK_MASTER_HOST=chu-spark-master
       - SPARK_MASTER_PORT=7077
     ports:
       - "8081:8080"  # Spark Master UI
@@ -131,7 +131,7 @@ services:
     volumes:
       - ./spark/jobs:/opt/spark-apps
       - ./spark/data:/opt/spark-data
-      - ./DATA_2024:/data/DATA_2024:ro
+      - ./data/DATA 2024:/data/DATA_2024:ro
       - spark_logs:/var/log/spark
     networks:
       - chu_network
@@ -146,19 +146,19 @@ services:
     container_name: chu_spark_worker
     environment:
       - SPARK_MODE=worker
-      - SPARK_MASTER_URL=spark://chu_spark_master:7077
-      - SPARK_WORKER_MEMORY=2G
+      - SPARK_MASTER_URL=spark://chu-spark-master:7077
+      - SPARK_WORKER_MEMORY=8G
       - SPARK_WORKER_CORES=2
     depends_on:
       - spark-master
     volumes:
       - ./spark/jobs:/opt/spark-apps
       - ./spark/data:/opt/spark-data
-      - ./DATA_2024:/data/DATA_2024:ro
+      - ./data/DATA 2024:/data/DATA_2024:ro
       - spark_logs:/var/log/spark
     networks:
       - chu_network
-    command: /opt/spark/bin/spark-class org.apache.spark.deploy.worker.Worker spark://chu_spark_master:7077
+    command: /opt/spark/bin/spark-class org.apache.spark.deploy.worker.Worker spark://chu-spark-master:7077
     restart: unless-stopped
 
   # ----------------------------------------------------------
@@ -238,7 +238,7 @@ services:
       AIRFLOW__WEBSERVER__WTF_CSRF_ENABLED: 'False'
       # Connexions pré-configurées
       AIRFLOW_CONN_POSTGRES_CHU: postgresql://admin:admin123@chu_postgres:5432/healthcare_data
-      AIRFLOW_CONN_SPARK_DEFAULT: spark://chu_spark_master:7077
+      AIRFLOW_CONN_SPARK_DEFAULT: spark://chu-spark-master:7077
       # Configuration MinIO S3
       AWS_ACCESS_KEY_ID: minioadmin
       AWS_SECRET_ACCESS_KEY: minioadmin123
@@ -248,7 +248,9 @@ services:
       - ./airflow/dags:/opt/airflow/dags
       - ./airflow/logs:/opt/airflow/logs
       - ./airflow/plugins:/opt/airflow/plugins
-      - ./spark/apps:/opt/spark-apps
+      - ./spark/jobs:/opt/spark-apps:ro
+      - ./spark/data:/opt/spark-data
+      - ./data/DATA 2024:/data/DATA_2024:ro
     healthcheck:
       test: ["CMD", "curl", "--fail", "http://localhost:8080/health"]
       interval: 30s
@@ -282,7 +284,7 @@ services:
       AIRFLOW__CORE__LOAD_EXAMPLES: 'False'
       # Connexions pré-configurées
       AIRFLOW_CONN_POSTGRES_CHU: postgresql://admin:admin123@chu_postgres:5432/healthcare_data
-      AIRFLOW_CONN_SPARK_DEFAULT: spark://chu_spark_master:7077
+      AIRFLOW_CONN_SPARK_DEFAULT: spark://chu-spark-master:7077
       # Configuration MinIO S3
       AWS_ACCESS_KEY_ID: minioadmin
       AWS_SECRET_ACCESS_KEY: minioadmin123
@@ -290,7 +292,9 @@ services:
       - ./airflow/dags:/opt/airflow/dags
       - ./airflow/logs:/opt/airflow/logs
       - ./airflow/plugins:/opt/airflow/plugins
-      - ./spark/apps:/opt/spark-apps
+      - ./spark/jobs:/opt/spark-apps:ro
+      - ./spark/data:/opt/spark-data
+      - ./data/DATA 2024:/data/DATA_2024:ro
     command: scheduler
     restart: unless-stopped
     user: "${AIRFLOW_UID:-50000}:0"

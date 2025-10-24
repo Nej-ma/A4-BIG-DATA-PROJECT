@@ -13,6 +13,8 @@ from pyspark.sql.functions import current_timestamp, lit, col
 from datetime import datetime
 import sys
 import logging
+import os
+import argparse
 
 logging.basicConfig(
     level=logging.INFO,
@@ -32,8 +34,10 @@ class BronzeExtractor:
             "password": "admin123",
             "driver": "org.postgresql.Driver"
         }
-        self.data_dir = "/home/jovyan/DATA_2024"
-        self.output_base = "/home/jovyan/data/bronze"
+        # Use env-configurable paths for portability (Airflow/Jupyter/Spark)
+        self.data_dir = os.getenv("DATA_DIR", "/data/DATA_2024")
+        data_base = os.getenv("DATA_BASE", "/opt/spark-data")
+        self.output_base = f"{data_base}/bronze"
         self.results = []
 
     def extract_postgres_table(self, table_name):
@@ -225,42 +229,81 @@ class BronzeExtractor:
 
 def create_spark_session():
     """Create Spark session with optimal configuration"""
-    return SparkSession.builder \
-        .appName("CHU - Bronze Extraction") \
-        .config("spark.driver.memory", "4g") \
-        .config("spark.executor.memory", "4g") \
-        .config("spark.sql.adaptive.enabled", "true") \
-        .config("spark.sql.adaptive.coalescePartitions.enabled", "true") \
-        .getOrCreate()
+    master = os.getenv("SPARK_MASTER_URL", "local[*]")
+    builder = (
+        SparkSession.builder
+        .appName(os.getenv("SPARK_APP_NAME", "CHU - Bronze Extraction"))
+        .config("spark.driver.memory", os.getenv("SPARK_DRIVER_MEMORY", "4g"))
+        .config("spark.executor.memory", os.getenv("SPARK_EXECUTOR_MEMORY", "4g"))
+        .config("spark.sql.adaptive.enabled", "true")
+        .config("spark.sql.adaptive.coalescePartitions.enabled", "true")
+        .config("spark.jars.packages", os.getenv("SPARK_PACKAGES", "org.postgresql:postgresql:42.7.3"))
+    )
+    if master:
+        builder = builder.master(master)
+    return builder.getOrCreate()
 
 
 def main():
     """Main execution function"""
+    parser = argparse.ArgumentParser(description="Bronze extraction job")
+    parser.add_argument("--postgres-table", dest="postgres_table", help="Single PostgreSQL table to extract")
+    parser.add_argument("--csv-source", dest="csv_source", help="Single CSV source to extract: etablissement_sante|satisfaction_esatis48h_2019|departements|deces_2019")
+    parser.add_argument("--all", dest="run_all", action="store_true", help="Run full extraction (Postgres + CSV)")
+    args = parser.parse_args()
+
     logger.info("Starting Bronze Layer Extraction")
 
     spark = create_spark_session()
     logger.info(f"Spark {spark.version} initialized")
 
+    exit_code = 0
     try:
         extractor = BronzeExtractor(spark)
 
-        extractor.extract_all_postgres()
-        extractor.extract_all_csv()
+        ran_any = False
+
+        if args.postgres_table:
+            res = extractor.extract_postgres_table(args.postgres_table)
+            extractor.results.append(res)
+            ran_any = True
+
+        if args.csv_source:
+            name = args.csv_source
+            if name == "deces_2019":
+                res = extractor.extract_deces_filtered()
+                extractor.results.append(res)
+            else:
+                mapping = {
+                    "etablissement_sante": f"{extractor.data_dir}/Etablissement de SANTE/etablissement_sante.csv",
+                    "satisfaction_esatis48h_2019": f"{extractor.data_dir}/Satisfaction/2019/resultats-esatis48h-mco-open-data-2019.csv",
+                    "departements": f"{extractor.data_dir}/departements-francais.csv",
+                }
+                if name not in mapping:
+                    logger.error(f"Unknown CSV source: {name}")
+                    return 2
+                res = extractor.extract_csv_file(name, mapping[name])
+                extractor.results.append(res)
+            ran_any = True
+
+        if args.run_all or not ran_any:
+            extractor.extract_all_postgres()
+            extractor.extract_all_csv()
 
         extractor.print_summary()
-
         logger.info("Bronze extraction completed successfully")
-        return 0
 
     except Exception as e:
         logger.error(f"Bronze extraction failed: {str(e)}")
         import traceback
         traceback.print_exc()
-        return 1
+        exit_code = 1
 
     finally:
         spark.stop()
         logger.info("Spark session stopped")
+
+    return exit_code
 
 
 if __name__ == "__main__":

@@ -12,7 +12,7 @@
 *.json
 *.xlsx
 *.xls
-livrable*
+prosit*
 # Données de production (à exclure absolument)
 data/DATA 2024
 datasets/
