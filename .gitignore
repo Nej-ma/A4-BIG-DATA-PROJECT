@@ -15,7 +15,8 @@
 prosit*
 airflow/db_data/*
 spark/data/*
-livrable1*
+livrables*
+archive
 # Données de production (à exclure absolument)
 data/DATA 2024
 datasets/

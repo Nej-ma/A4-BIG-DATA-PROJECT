@@ -19,6 +19,7 @@ volumes:
   postgres_data:
   minio_data:
   spark_logs:
+  superset_home:
 
 # ============================================================
 # SERVICES
@@ -346,6 +347,7 @@ services:
   superset:
     image: apache/superset:latest
     container_name: chu_superset
+    user: root
     depends_on:
       superset-db:
         condition: service_healthy
@@ -361,17 +363,22 @@ services:
       DATABASE_USER: superset
       DATABASE_PORT: 5432
       DATABASE_DIALECT: postgresql
+      SUPERSET_HOME: /app/superset_home
     ports:
       - "8088:8088"
+    volumes:
+      - superset_home:/app/superset_home
     command: >
       /bin/sh -c "
-      pip install psycopg2-binary &&
+      pip install --target=/app/.venv/lib/python3.10/site-packages psycopg2-binary pyhive thrift-sasl &&
       superset db upgrade &&
       superset fab create-admin --username admin --firstname Admin --lastname User --email admin@chu.fr --password admin123 || true &&
       superset init &&
       superset run -h 0.0.0.0 -p 8088 --with-threads --reload --debugger
       "
     restart: unless-stopped
+
+
 
 # ============================================================
 # FIN

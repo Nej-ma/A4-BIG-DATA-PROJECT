@@ -1,7 +1,7 @@
 """
-Gold Layer Transformation Job
+Gold Layer Transformation Job - Delta Lake
 
-Creates star schema dimensional model from Silver data.
+Creates star schema using Delta Lake dimensional model from Silver data.
 Includes 5 dimensions and 4 fact tables with temporal partitioning.
 
 Authors: Nejma MOUALHI, Brieuc OLIVIERI, Nicolas TAING
@@ -53,28 +53,19 @@ class GoldTransformer:
         except Exception as e:
             logger.warning(f"Could not pre-delete path {path}: {e}")
 
-    def _write_parquet_atomic(self, df, out_path: str, partition_cols=None):
-        """Write to a temp path then swap into place to avoid clear-dir errors.
+    def _write_delta_atomic(self, df, out_path: str, partition_cols=None):
+        """Write to Delta Lake with atomic operations.
 
-        - Writes df to out_path.tmp (overwrite)
-        - Removes existing out_path if present
-        - Moves tmp into final out_path
+        - Writes df to out_path using Delta Lake format
+        - Delta Lake handles atomicity natively via transaction log
+        - Partitioning if specified
         """
-        tmp_path = f"{out_path}.tmp_write"
-        # Clean tmp and write
-        self._rm_rf(tmp_path)
-        writer = df.write.mode("overwrite").option(
-            "mapreduce.fileoutputcommitter.marksuccessfuljobs", "false"
-        )
+        writer = df.write.format("delta").mode("overwrite")
+
         if partition_cols:
             writer = writer.partitionBy(*partition_cols)
-        writer.parquet(tmp_path)
-        # Swap
-        self._rm_rf(out_path)
-        try:
-            os.replace(tmp_path, out_path)
-        except Exception:
-            shutil.move(tmp_path, out_path)
+
+        writer.save(out_path)
 
     def create_dim_temps(self):
         """Create time dimension (2013-2025)"""
@@ -115,7 +106,7 @@ class GoldTransformer:
         row_count = dim_temps.count()
         logger.info(f"Created {row_count:,} days (2013-2025)")
 
-        self._write_parquet_atomic(dim_temps, f"{self.gold_output}/dim_temps")
+        self._write_delta_atomic(dim_temps, f"{self.gold_output}/dim_temps")
         logger.info("Saved dim_temps")
 
         return {"table": "dim_temps", "rows": row_count, "status": "SUCCESS"}
@@ -125,7 +116,7 @@ class GoldTransformer:
         logger.info("Creating patient dimension")
 
         try:
-            df_silver = self.spark.read.parquet(f"{self.silver_base}/patient")
+            df_silver = self.spark.read.format("delta").load(f"{self.silver_base}/patient")
 
             dim_patient = df_silver.select(
                 col("id_patient"),
@@ -143,7 +134,7 @@ class GoldTransformer:
             row_count = dim_patient.count()
             logger.info(f"Created dimension with {row_count:,} patients")
 
-            self._write_parquet_atomic(dim_patient, f"{self.gold_output}/dim_patient")
+            self._write_delta_atomic(dim_patient, f"{self.gold_output}/dim_patient")
             logger.info("Saved dim_patient")
 
             return {"table": "dim_patient", "rows": row_count, "status": "SUCCESS"}
@@ -157,7 +148,7 @@ class GoldTransformer:
         logger.info("Creating diagnostic dimension")
 
         try:
-            df_silver = self.spark.read.parquet(f"{self.silver_base}/diagnostic")
+            df_silver = self.spark.read.format("delta").load(f"{self.silver_base}/diagnostic")
 
             dim_diagnostic = df_silver.select(
                 col("Code_diag").alias("code_diag"),
@@ -168,7 +159,7 @@ class GoldTransformer:
             row_count = dim_diagnostic.count()
             logger.info(f"Created dimension with {row_count:,} diagnostics")
 
-            self._write_parquet_atomic(dim_diagnostic, f"{self.gold_output}/dim_diagnostic")
+            self._write_delta_atomic(dim_diagnostic, f"{self.gold_output}/dim_diagnostic")
             logger.info("Saved dim_diagnostic")
 
             return {"table": "dim_diagnostic", "rows": row_count, "status": "SUCCESS"}
@@ -182,8 +173,8 @@ class GoldTransformer:
         logger.info("Creating professional dimension")
 
         try:
-            df_prof = self.spark.read.parquet(f"{self.silver_base}/professionnel_de_sante")
-            df_spec = self.spark.read.parquet(f"{self.silver_base}/specialites")
+            df_prof = self.spark.read.format("delta").load(f"{self.silver_base}/professionnel_de_sante")
+            df_spec = self.spark.read.format("delta").load(f"{self.silver_base}/specialites")
 
             dim_professionnel = df_prof.select(
                 col("Identifiant").alias("id_prof"),
@@ -204,7 +195,7 @@ class GoldTransformer:
             row_count = dim_professionnel.count()
             logger.info(f"Created dimension with {row_count:,} professionals")
 
-            self._write_parquet_atomic(dim_professionnel, f"{self.gold_output}/dim_professionnel")
+            self._write_delta_atomic(dim_professionnel, f"{self.gold_output}/dim_professionnel")
             logger.info("Saved dim_professionnel")
 
             return {"table": "dim_professionnel", "rows": row_count, "status": "SUCCESS"}
@@ -218,8 +209,8 @@ class GoldTransformer:
         logger.info("Creating facility dimension")
 
         try:
-            df_etab = self.spark.read.parquet(f"{self.silver_base}/etablissement_sante")
-            df_dept = self.spark.read.parquet(f"{self.bronze_base}/csv/departements")
+            df_etab = self.spark.read.format("delta").load(f"{self.silver_base}/etablissement_sante")
+            df_dept = self.spark.read.format("delta").load(f"{self.bronze_base}/csv/departements")
 
             dim_etablissement = df_etab.select(
                 col("finess_site").alias("finess"),
@@ -248,7 +239,7 @@ class GoldTransformer:
             row_count = dim_etablissement.count()
             logger.info(f"Created dimension with {row_count:,} facilities")
 
-            self._write_parquet_atomic(dim_etablissement, f"{self.gold_output}/dim_etablissement")
+            self._write_delta_atomic(dim_etablissement, f"{self.gold_output}/dim_etablissement")
             logger.info("Saved dim_etablissement")
 
             return {"table": "dim_etablissement", "rows": row_count, "status": "SUCCESS"}
@@ -262,7 +253,7 @@ class GoldTransformer:
         logger.info("Creating consultation fact table")
 
         try:
-            df_silver = self.spark.read.parquet(f"{self.silver_base}/consultation")
+            df_silver = self.spark.read.format("delta").load(f"{self.silver_base}/consultation")
 
             fait_consultation = df_silver.select(
                 col("id_consultation"),
@@ -283,7 +274,7 @@ class GoldTransformer:
             row_count = fait_consultation.count()
             logger.info(f"Created fact table with {row_count:,} consultations")
 
-            self._write_parquet_atomic(
+            self._write_delta_atomic(
                 fait_consultation, f"{self.gold_output}/fait_consultation", partition_cols=["annee", "mois"]
             )
 
@@ -300,7 +291,7 @@ class GoldTransformer:
         logger.info("Creating hospitalization fact table from consultation episodes")
 
         try:
-            df_cons = self.spark.read.parquet(f"{self.silver_base}/consultation").select(
+            df_cons = self.spark.read.format("delta").load(f"{self.silver_base}/consultation").select(
                 col("id_patient"),
                 col("id_diagnostic").alias("code_diag"),
                 to_date(col("date_consultation")).alias("date_consultation")
@@ -363,7 +354,7 @@ class GoldTransformer:
             row_count = fait_hosp.count()
             logger.info(f"Created fact table with {row_count:,} hospitalization episodes")
 
-            self._write_parquet_atomic(
+            self._write_delta_atomic(
                 fait_hosp, f"{self.gold_output}/fait_hospitalisation", partition_cols=["annee", "mois"]
             )
 
@@ -380,7 +371,7 @@ class GoldTransformer:
         logger.info("Creating death fact table")
 
         try:
-            df_silver = self.spark.read.parquet(f"{self.silver_base}/deces_2019")
+            df_silver = self.spark.read.format("delta").load(f"{self.silver_base}/deces_2019")
 
             fait_deces = df_silver.select(
                 monotonically_increasing_id().alias("id_deces"),
@@ -403,7 +394,7 @@ class GoldTransformer:
             row_count = fait_deces.count()
             logger.info(f"Created fact table with {row_count:,} deaths")
 
-            self._write_parquet_atomic(
+            self._write_delta_atomic(
                 fait_deces, f"{self.gold_output}/fait_deces", partition_cols=["annee", "mois"]
             )
 
@@ -420,31 +411,25 @@ class GoldTransformer:
         logger.info("Creating satisfaction fact table")
 
         try:
-            df_silver = self.spark.read.parquet(f"{self.silver_base}/satisfaction_2019")
+            df_silver = self.spark.read.format("delta").load(f"{self.silver_base}/satisfaction_2020")
 
             fait_satisfaction = df_silver.select(
                 monotonically_increasing_id().alias("id_satisfaction"),
                 col("finess"),
-                lit("20190101").alias("id_temps"),
+                col("finess_geo"),
+                col("region"),
+                col("raison_sociale_finess").alias("etablissement_nom"),
+                col("type_enquete"),
+                lit("20200101").alias("id_temps"),
                 col("annee"),
                 col("score_global"),
-                col("score_accueil"),
-                col("score_pec_infirmier"),
-                col("score_pec_medical"),
-                col("score_chambre"),
-                col("score_repas"),
-                col("score_sortie"),
-                col("taux_recommandation"),
-                col("nb_reponses_global").alias("nb_repondants"),
-                col("nb_recommandations"),
-                col("classement"),
-                col("evolution")
+                col("taux_recommandation")
             )
 
             row_count = fait_satisfaction.count()
             logger.info(f"Created fact table with {row_count:,} satisfaction evaluations")
 
-            self._write_parquet_atomic(
+            self._write_delta_atomic(
                 fait_satisfaction, f"{self.gold_output}/fait_satisfaction", partition_cols=["annee"]
             )
 
@@ -481,21 +466,25 @@ class GoldTransformer:
 
 
 def create_spark_session():
-    """Create Spark session with optimal configuration"""
+    """Create Spark session with Delta Lake configuration"""
     master = os.getenv("SPARK_MASTER_URL", "local[*]")
     builder = (
         SparkSession.builder
-        .appName(os.getenv("SPARK_APP_NAME", "CHU - Gold Star Schema"))
+        .appName(os.getenv("SPARK_APP_NAME", "CHU - Gold Star Schema (Delta Lake)"))
         .config("spark.driver.memory", os.getenv("SPARK_DRIVER_MEMORY", "4g"))
         .config("spark.executor.memory", os.getenv("SPARK_EXECUTOR_MEMORY", "4g"))
         .config("spark.sql.adaptive.enabled", "true")
         .config("spark.sql.adaptive.coalescePartitions.enabled", "true")
         .config("spark.sql.adaptive.skewJoin.enabled", "true")
         .config("spark.sql.autoBroadcastJoinThreshold", "10485760")
-        .config("spark.jars.packages", os.getenv("SPARK_PACKAGES", "org.postgresql:postgresql:42.7.3"))
+        .config("spark.sql.extensions", "io.delta.sql.DeltaSparkSessionExtension")
+        .config("spark.sql.catalog.spark_catalog", "org.apache.spark.sql.delta.catalog.DeltaCatalog")
+        .config("spark.jars.packages", os.getenv("SPARK_PACKAGES", "org.postgresql:postgresql:42.7.3,io.delta:delta-core_2.12:2.4.0"))
     )
     if master:
         builder = builder.master(master)
+
+    # Note: When using spark-submit with --packages, Delta is configured via packages parameter
     return builder.getOrCreate()
 
 

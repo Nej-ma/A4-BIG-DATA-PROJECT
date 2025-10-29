@@ -1,7 +1,7 @@
 """
-Bronze Layer Extraction Job
+Bronze Layer Extraction Job - Delta Lake
 
-Extracts data from PostgreSQL and CSV sources into Bronze layer.
+Extracts data from PostgreSQL and CSV sources into Bronze layer using Delta Lake.
 Preserves raw data with minimal transformation (metadata only).
 
 Authors: Nejma MOUALHI, Brieuc OLIVIERI, Nicolas TAING
@@ -60,9 +60,10 @@ class BronzeExtractor:
 
             output_path = f"{self.output_base}/postgres/{table_name}"
             df_with_meta.write \
+                .format("delta") \
                 .mode("overwrite") \
                 .partitionBy("ingestion_date") \
-                .parquet(output_path)
+                .save(output_path)
 
             logger.info(f"Saved {table_name} to {output_path}")
 
@@ -103,8 +104,9 @@ class BronzeExtractor:
 
             output_path = f"{self.output_base}/csv/{name}"
             df_with_meta.write \
+                .format("delta") \
                 .mode("overwrite") \
-                .parquet(output_path)
+                .save(output_path)
 
             logger.info(f"Saved {name} to {output_path}")
 
@@ -147,9 +149,10 @@ class BronzeExtractor:
 
             output_path = f"{self.output_base}/csv/deces_2019"
             df_with_meta.write \
+                .format("delta") \
                 .mode("overwrite") \
                 .option("compression", "snappy") \
-                .parquet(output_path)
+                .save(output_path)
 
             logger.info(f"Saved deaths 2019 to {output_path}")
 
@@ -199,7 +202,7 @@ class BronzeExtractor:
 
         csv_files = [
             ("etablissement_sante", f"{self.data_dir}/Etablissement de SANTE/etablissement_sante.csv"),
-            ("satisfaction_esatis48h_2019", f"{self.data_dir}/Satisfaction/2019/resultats-esatis48h-mco-open-data-2019.csv"),
+            ("satisfaction_esatis48h_2020", "/data/sources/satisfaction_2020.csv"),
             ("departements", f"{self.data_dir}/departements-francais.csv")
         ]
 
@@ -228,19 +231,24 @@ class BronzeExtractor:
 
 
 def create_spark_session():
-    """Create Spark session with optimal configuration"""
+    """Create Spark session with Delta Lake configuration"""
     master = os.getenv("SPARK_MASTER_URL", "local[*]")
     builder = (
         SparkSession.builder
-        .appName(os.getenv("SPARK_APP_NAME", "CHU - Bronze Extraction"))
+        .appName(os.getenv("SPARK_APP_NAME", "CHU - Bronze Extraction (Delta Lake)"))
         .config("spark.driver.memory", os.getenv("SPARK_DRIVER_MEMORY", "4g"))
         .config("spark.executor.memory", os.getenv("SPARK_EXECUTOR_MEMORY", "4g"))
         .config("spark.sql.adaptive.enabled", "true")
         .config("spark.sql.adaptive.coalescePartitions.enabled", "true")
-        .config("spark.jars.packages", os.getenv("SPARK_PACKAGES", "org.postgresql:postgresql:42.7.3"))
+        .config("spark.sql.extensions", "io.delta.sql.DeltaSparkSessionExtension")
+        .config("spark.sql.catalog.spark_catalog", "org.apache.spark.sql.delta.catalog.DeltaCatalog")
+        .config("spark.jars.packages", os.getenv("SPARK_PACKAGES", "org.postgresql:postgresql:42.7.3,io.delta:delta-core_2.12:2.4.0"))
     )
     if master:
         builder = builder.master(master)
+
+    # Note: When using spark-submit with --packages, Delta is configured via packages parameter
+    # configure_spark_with_delta_pip() is only for pip environments (Jupyter)
     return builder.getOrCreate()
 
 
@@ -248,7 +256,7 @@ def main():
     """Main execution function"""
     parser = argparse.ArgumentParser(description="Bronze extraction job")
     parser.add_argument("--postgres-table", dest="postgres_table", help="Single PostgreSQL table to extract")
-    parser.add_argument("--csv-source", dest="csv_source", help="Single CSV source to extract: etablissement_sante|satisfaction_esatis48h_2019|departements|deces_2019")
+    parser.add_argument("--csv-source", dest="csv_source", help="Single CSV source to extract: etablissement_sante|satisfaction_esatis48h_2020|departements|deces_2019")
     parser.add_argument("--all", dest="run_all", action="store_true", help="Run full extraction (Postgres + CSV)")
     args = parser.parse_args()
 
@@ -276,7 +284,7 @@ def main():
             else:
                 mapping = {
                     "etablissement_sante": f"{extractor.data_dir}/Etablissement de SANTE/etablissement_sante.csv",
-                    "satisfaction_esatis48h_2019": f"{extractor.data_dir}/Satisfaction/2019/resultats-esatis48h-mco-open-data-2019.csv",
+                    "satisfaction_esatis48h_2020": "/data/sources/satisfaction_2020.csv",
                     "departements": f"{extractor.data_dir}/departements-francais.csv",
                 }
                 if name not in mapping:

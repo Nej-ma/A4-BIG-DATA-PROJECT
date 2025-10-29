@@ -25,6 +25,10 @@ DEFAULT_ENV = {
     "PYSPARK_DRIVER_PYTHON": "python3",
 }
 
+# Delta Lake packages for all jobs
+DELTA_PACKAGES = "io.delta:delta-core_2.12:2.4.0,org.postgresql:postgresql:42.7.3"
+SPARK_SUBMIT = f"/opt/spark/bin/spark-submit --packages {DELTA_PACKAGES}"
+
 PG_TABLES = [
     "Patient", "Consultation", "Diagnostic", "Professionnel_de_sante",
     "Mutuelle", "Adher", "Prescription", "Medicaments",
@@ -50,7 +54,7 @@ with DAG(
         for t in PG_TABLES:
             pg_tasks.append(BashOperator(
                 task_id=f"extract_pg_{t.lower()}",
-                bash_command=f"python /opt/spark-apps/01_extract_bronze.py --postgres-table \"{t}\"",
+                bash_command=f"{SPARK_SUBMIT} /opt/spark-apps/01_extract_bronze.py --postgres-table \"{t}\"",
                 env={**DEFAULT_ENV, "SPARK_APP_NAME": f"Bronze-PG-{t}"},
             ))
 
@@ -60,66 +64,73 @@ with DAG(
         for s in CSV_SOURCES:
             csv_tasks.append(BashOperator(
                 task_id=f"extract_csv_{s}",
-                bash_command=f"python /opt/spark-apps/01_extract_bronze.py --csv-source {s}",
+                bash_command=f"{SPARK_SUBMIT} /opt/spark-apps/01_extract_bronze.py --csv-source {s}",
                 env={**DEFAULT_ENV, "SPARK_APP_NAME": f"Bronze-CSV-{s}"},
             ))
 
     # Silver - subjects
     silver_patient = BashOperator(
         task_id="silver_patient",
-        bash_command="python /opt/spark-apps/02_transform_silver.py --subject patient",
+        bash_command=f"{SPARK_SUBMIT} /opt/spark-apps/02_transform_silver.py --subject patient",
         env={**DEFAULT_ENV, "SPARK_APP_NAME": "Silver-Patient"},
     )
 
     silver_consultation = BashOperator(
         task_id="silver_consultation",
-        bash_command="python /opt/spark-apps/02_transform_silver.py --subject consultation",
+        bash_command=f"{SPARK_SUBMIT} /opt/spark-apps/02_transform_silver.py --subject consultation",
         env={**DEFAULT_ENV, "SPARK_APP_NAME": "Silver-Consultation"},
     )
 
     silver_etab = BashOperator(
         task_id="silver_etablissement_sante",
-        bash_command="python /opt/spark-apps/02_transform_silver.py --subject etablissement_sante",
+        bash_command=f"{SPARK_SUBMIT} /opt/spark-apps/02_transform_silver.py --subject etablissement_sante",
         env={**DEFAULT_ENV, "SPARK_APP_NAME": "Silver-Etablissement"},
     )
 
     silver_satisf = BashOperator(
         task_id="silver_satisfaction",
-        bash_command="python /opt/spark-apps/02_transform_silver.py --subject satisfaction",
+        bash_command=f"{SPARK_SUBMIT} /opt/spark-apps/02_transform_silver.py --subject satisfaction",
         env={**DEFAULT_ENV, "SPARK_APP_NAME": "Silver-Satisfaction"},
     )
 
     silver_deces = BashOperator(
         task_id="silver_deces",
-        bash_command="python /opt/spark-apps/02_transform_silver.py --subject deces",
+        bash_command=f"{SPARK_SUBMIT} /opt/spark-apps/02_transform_silver.py --subject deces",
         env={**DEFAULT_ENV, "SPARK_APP_NAME": "Silver-Deces"},
     )
 
     silver_refs = BashOperator(
         task_id="silver_references",
-        bash_command="python /opt/spark-apps/02_transform_silver.py --subject references",
+        bash_command=f"{SPARK_SUBMIT} /opt/spark-apps/02_transform_silver.py --subject references",
         env={**DEFAULT_ENV, "SPARK_APP_NAME": "Silver-References"},
     )
 
     # Gold - dimensions
     with TaskGroup("gold_dimensions") as gold_dims:
-        dim_temps = BashOperator(task_id="dim_temps", bash_command="python /opt/spark-apps/03_transform_gold.py --task dim_temps", env={**DEFAULT_ENV})
-        dim_patient = BashOperator(task_id="dim_patient", bash_command="python /opt/spark-apps/03_transform_gold.py --task dim_patient", env={**DEFAULT_ENV})
-        dim_diagnostic = BashOperator(task_id="dim_diagnostic", bash_command="python /opt/spark-apps/03_transform_gold.py --task dim_diagnostic", env={**DEFAULT_ENV})
-        dim_professionnel = BashOperator(task_id="dim_professionnel", bash_command="python /opt/spark-apps/03_transform_gold.py --task dim_professionnel", env={**DEFAULT_ENV})
-        dim_etablissement = BashOperator(task_id="dim_etablissement", bash_command="python /opt/spark-apps/03_transform_gold.py --task dim_etablissement", env={**DEFAULT_ENV})
+        dim_temps = BashOperator(task_id="dim_temps", bash_command=f"{SPARK_SUBMIT} /opt/spark-apps/03_transform_gold.py --task dim_temps", env={**DEFAULT_ENV})
+        dim_patient = BashOperator(task_id="dim_patient", bash_command=f"{SPARK_SUBMIT} /opt/spark-apps/03_transform_gold.py --task dim_patient", env={**DEFAULT_ENV})
+        dim_diagnostic = BashOperator(task_id="dim_diagnostic", bash_command=f"{SPARK_SUBMIT} /opt/spark-apps/03_transform_gold.py --task dim_diagnostic", env={**DEFAULT_ENV})
+        dim_professionnel = BashOperator(task_id="dim_professionnel", bash_command=f"{SPARK_SUBMIT} /opt/spark-apps/03_transform_gold.py --task dim_professionnel", env={**DEFAULT_ENV})
+        dim_etablissement = BashOperator(task_id="dim_etablissement", bash_command=f"{SPARK_SUBMIT} /opt/spark-apps/03_transform_gold.py --task dim_etablissement", env={**DEFAULT_ENV})
 
     # Gold - facts
     with TaskGroup("gold_facts") as gold_facts:
-        fait_consultation = BashOperator(task_id="fait_consultation", bash_command="python /opt/spark-apps/03_transform_gold.py --task fait_consultation", env={**DEFAULT_ENV})
-        fait_hospitalisation = BashOperator(task_id="fait_hospitalisation", bash_command="python /opt/spark-apps/03_transform_gold.py --task fait_hospitalisation", env={**DEFAULT_ENV})
-        fait_deces = BashOperator(task_id="fait_deces", bash_command="python /opt/spark-apps/03_transform_gold.py --task fait_deces", env={**DEFAULT_ENV})
-        fait_satisfaction = BashOperator(task_id="fait_satisfaction", bash_command="python /opt/spark-apps/03_transform_gold.py --task fait_satisfaction", env={**DEFAULT_ENV})
+        fait_consultation = BashOperator(task_id="fait_consultation", bash_command=f"{SPARK_SUBMIT} /opt/spark-apps/03_transform_gold.py --task fait_consultation", env={**DEFAULT_ENV})
+        fait_hospitalisation = BashOperator(task_id="fait_hospitalisation", bash_command=f"{SPARK_SUBMIT} /opt/spark-apps/03_transform_gold.py --task fait_hospitalisation", env={**DEFAULT_ENV})
+        fait_deces = BashOperator(task_id="fait_deces", bash_command=f"{SPARK_SUBMIT} /opt/spark-apps/03_transform_gold.py --task fait_deces", env={**DEFAULT_ENV})
+        fait_satisfaction = BashOperator(task_id="fait_satisfaction", bash_command=f"{SPARK_SUBMIT} /opt/spark-apps/03_transform_gold.py --task fait_satisfaction", env={**DEFAULT_ENV})
+
+    # Gold Views (enriched for Superset)
+    gold_views = BashOperator(
+        task_id="gold_views",
+        bash_command=f"{SPARK_SUBMIT} /opt/spark-apps/06_create_gold_views.py",
+        env={**DEFAULT_ENV, "SPARK_APP_NAME": "Gold-Views"},
+    )
 
     # Benchmarks (single task)
     benchmarks = BashOperator(
         task_id="benchmarks",
-        bash_command="python /opt/spark-apps/04_benchmarks.py",
+        bash_command=f"{SPARK_SUBMIT} /opt/spark-apps/04_benchmarks.py",
         env={**DEFAULT_ENV, "SPARK_APP_NAME": "Benchmarks"},
     )
 
@@ -134,5 +145,5 @@ with DAG(
     # Gold dimensions -> Gold facts
     gold_dims >> gold_facts
 
-    # Gold facts -> Benchmarks
-    gold_facts >> benchmarks
+    # Gold facts -> Gold views -> Benchmarks
+    gold_facts >> gold_views >> benchmarks

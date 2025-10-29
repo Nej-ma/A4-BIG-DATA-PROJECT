@@ -46,7 +46,7 @@ class BenchmarkRunner:
 
         for table in tables:
             try:
-                df = self.spark.read.parquet(f"{self.gold_base}/{table}")
+                df = self.spark.read.format("delta").load(f"{self.gold_base}/{table}")
                 df.createOrReplaceTempView(table)
                 logger.info(f"Loaded {table}: {df.count():,} rows")
             except Exception as e:
@@ -310,20 +310,24 @@ class BenchmarkRunner:
 
 
 def create_spark_session():
-    """Create Spark session with optimal configuration"""
+    """Create Spark session with Delta Lake configuration"""
     master = os.getenv("SPARK_MASTER_URL", "local[*]")
     builder = (
         SparkSession.builder
-        .appName(os.getenv("SPARK_APP_NAME", "CHU - Performance Benchmarks"))
+        .appName(os.getenv("SPARK_APP_NAME", "CHU - Performance Benchmarks (Delta Lake)"))
         .config("spark.driver.memory", os.getenv("SPARK_DRIVER_MEMORY", "4g"))
         .config("spark.executor.memory", os.getenv("SPARK_EXECUTOR_MEMORY", "4g"))
         .config("spark.sql.adaptive.enabled", "true")
         .config("spark.sql.adaptive.coalescePartitions.enabled", "true")
         .config("spark.sql.autoBroadcastJoinThreshold", "10485760")
-        .config("spark.jars.packages", os.getenv("SPARK_PACKAGES", "org.postgresql:postgresql:42.7.3"))
+        .config("spark.sql.extensions", "io.delta.sql.DeltaSparkSessionExtension")
+        .config("spark.sql.catalog.spark_catalog", "org.apache.spark.sql.delta.catalog.DeltaCatalog")
+        .config("spark.jars.packages", os.getenv("SPARK_PACKAGES", "org.postgresql:postgresql:42.7.3,io.delta:delta-core_2.12:2.4.0"))
     )
     if master:
         builder = builder.master(master)
+
+    # Note: When using spark-submit with --packages, Delta is configured via packages parameter
     return builder.getOrCreate()
 
 

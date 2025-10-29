@@ -1,8 +1,8 @@
 """
-Silver Layer Transformation Job
+Silver Layer Transformation Job - Delta Lake
 
 Cleans and anonymizes Bronze data according to GDPR requirements.
-Applies data quality rules and standardizes formats.
+Applies data quality rules and standardizes formats using Delta Lake.
 
 Authors: Nejma MOUALHI, Brieuc OLIVIERI, Nicolas TAING
 Date: October 2025
@@ -42,7 +42,7 @@ class SilverTransformer:
         logger.info("Transforming patient data with anonymization")
 
         try:
-            df_bronze = self.spark.read.parquet(f"{self.bronze_base}/postgres/Patient")
+            df_bronze = self.spark.read.format("delta").load(f"{self.bronze_base}/postgres/Patient")
             row_count_in = df_bronze.count()
             logger.info(f"Read {row_count_in:,} patients from Bronze")
 
@@ -85,7 +85,7 @@ class SilverTransformer:
             row_count_out = df_silver.count()
             logger.info(f"Anonymized {row_count_out:,} patients (removed {row_count_in - row_count_out} duplicates)")
 
-            df_silver.write.mode("overwrite").parquet(f"{self.silver_base}/patient")
+            df_silver.write.format("delta").mode("overwrite").save(f"{self.silver_base}/patient")
             logger.info("Saved patient data to Silver")
 
             return {"table": "patient", "rows": row_count_out, "status": "SUCCESS"}
@@ -99,7 +99,7 @@ class SilverTransformer:
         logger.info("Transforming consultation data")
 
         try:
-            df_bronze = self.spark.read.parquet(f"{self.bronze_base}/postgres/Consultation")
+            df_bronze = self.spark.read.format("delta").load(f"{self.bronze_base}/postgres/Consultation")
             row_count_in = df_bronze.count()
             logger.info(f"Read {row_count_in:,} consultations from Bronze")
 
@@ -136,7 +136,7 @@ class SilverTransformer:
             row_count_out = df_silver.count()
             logger.info(f"Cleaned {row_count_out:,} consultations")
 
-            df_silver.write.mode("overwrite").parquet(f"{self.silver_base}/consultation")
+            df_silver.write.format("delta").mode("overwrite").save(f"{self.silver_base}/consultation")
             logger.info("Saved consultation data to Silver")
 
             return {"table": "consultation", "rows": row_count_out, "status": "SUCCESS"}
@@ -150,7 +150,7 @@ class SilverTransformer:
         logger.info("Transforming healthcare facilities data")
 
         try:
-            df_bronze = self.spark.read.parquet(f"{self.bronze_base}/csv/etablissement_sante")
+            df_bronze = self.spark.read.format("delta").load(f"{self.bronze_base}/csv/etablissement_sante")
             row_count_in = df_bronze.count()
             logger.info(f"Read {row_count_in:,} facilities from Bronze")
 
@@ -188,7 +188,7 @@ class SilverTransformer:
             row_count_out = df_silver.count()
             logger.info(f"Cleaned {row_count_out:,} facilities")
 
-            df_silver.write.mode("overwrite").parquet(f"{self.silver_base}/etablissement_sante")
+            df_silver.write.format("delta").mode("overwrite").save(f"{self.silver_base}/etablissement_sante")
             logger.info("Saved facility data to Silver")
 
             return {"table": "etablissement_sante", "rows": row_count_out, "status": "SUCCESS"}
@@ -202,7 +202,7 @@ class SilverTransformer:
         logger.info("Transforming satisfaction data")
 
         try:
-            df_bronze = self.spark.read.parquet(f"{self.bronze_base}/csv/satisfaction_esatis48h_2019")
+            df_bronze = self.spark.read.format("delta").load(f"{self.bronze_base}/csv/satisfaction_esatis48h_2020")
             row_count_in = df_bronze.count()
             logger.info(f"Read {row_count_in:,} satisfaction records from Bronze")
 
@@ -213,56 +213,41 @@ class SilverTransformer:
                 trim(col("region")).alias("region"),
                 trim(col("rs_finess")).alias("raison_sociale_finess"),
 
-                # Participation
-                trim(col("participation")).alias("participation"),
-                trim(col("depot")).alias("depot"),
+                # Type d'enquete (MCO_48H ou CHIRURGIE_AMBULATOIRE)
+                trim(col("type_enquete")).alias("type_enquete"),
 
-                # Scores (cast to double)
-                col("score_all_rea_ajust").cast("double").alias("score_global"),
-                col("score_accueil_rea_ajust").cast("double").alias("score_accueil"),
-                col("score_PECinf_rea_ajust").cast("double").alias("score_pec_infirmier"),
-                col("score_PECmed_rea_ajust").cast("double").alias("score_pec_medical"),
-                col("score_chambre_rea_ajust").cast("double").alias("score_chambre"),
-                col("score_repas_rea_ajust").cast("double").alias("score_repas"),
-                col("score_sortie_rea_ajust").cast("double").alias("score_sortie"),
-
-                # Response counts
-                col("nb_rep_score_all_rea_ajust").cast("integer").alias("nb_reponses_global"),
-                col("nb_reco_brut").cast("integer").alias("nb_recommandations"),
+                # Scores (simplifié: un seul score global)
+                col("score_satisfaction").cast("double").alias("score_global"),
                 col("taux_reco_brut").cast("double").alias("taux_recommandation"),
 
-                # Classification
-                trim(col("classement")).alias("classement"),
-                trim(col("evolution")).alias("evolution"),
-
                 # Fixed year
-                lit(2019).alias("annee"),
+                lit(2020).alias("annee"),
 
                 # Metadata
                 col("ingestion_date"),
                 current_timestamp().alias("transformation_timestamp")
             ).filter(
                 col("score_global").isNotNull()
-            ).dropDuplicates(["finess"])
+            ).dropDuplicates(["finess", "type_enquete"])
 
             row_count_out = df_silver.count()
             logger.info(f"Cleaned {row_count_out:,} satisfaction records")
 
-            df_silver.write.mode("overwrite").parquet(f"{self.silver_base}/satisfaction_2019")
+            df_silver.write.format("delta").mode("overwrite").save(f"{self.silver_base}/satisfaction_2020")
             logger.info("Saved satisfaction data to Silver")
 
-            return {"table": "satisfaction_2019", "rows": row_count_out, "status": "SUCCESS"}
+            return {"table": "satisfaction_2020", "rows": row_count_out, "status": "SUCCESS"}
 
         except Exception as e:
             logger.error(f"Error transforming satisfaction: {str(e)}")
-            return {"table": "satisfaction_2019", "rows": 0, "status": f"ERROR: {str(e)}"}
+            return {"table": "satisfaction_2020", "rows": 0, "status": f"ERROR: {str(e)}"}
 
     def transform_deces(self):
         """Anonymize death records (GDPR compliance)"""
         logger.info("Transforming death records with anonymization")
 
         try:
-            df_bronze = self.spark.read.parquet(f"{self.bronze_base}/csv/deces_2019")
+            df_bronze = self.spark.read.format("delta").load(f"{self.bronze_base}/csv/deces_2019")
             row_count_in = df_bronze.count()
             logger.info(f"Read {row_count_in:,} death records from Bronze")
 
@@ -303,7 +288,7 @@ class SilverTransformer:
             row_count_out = df_silver.count()
             logger.info(f"Anonymized {row_count_out:,} death records")
 
-            df_silver.write.mode("overwrite").parquet(f"{self.silver_base}/deces_2019")
+            df_silver.write.format("delta").mode("overwrite").save(f"{self.silver_base}/deces_2019")
             logger.info("Saved death records to Silver")
 
             return {"table": "deces_2019", "rows": row_count_out, "status": "SUCCESS"}
@@ -334,7 +319,7 @@ class SilverTransformer:
             try:
                 logger.info(f"Processing {table}")
 
-                df = self.spark.read.parquet(f"{self.bronze_base}/postgres/{table}")
+                df = self.spark.read.format("delta").load(f"{self.bronze_base}/postgres/{table}")
 
                 # Basic cleaning: trim strings
                 df_clean = df
@@ -350,7 +335,7 @@ class SilverTransformer:
 
                 # Save
                 output_path = f"{self.silver_base}/{table.lower()}"
-                df_clean.write.mode("overwrite").parquet(output_path)
+                df_clean.write.format("delta").mode("overwrite").save(output_path)
 
                 row_count = df_clean.count()
                 logger.info(f"Cleaned {row_count:,} rows for {table}")
@@ -387,18 +372,22 @@ class SilverTransformer:
 
 
 def create_spark_session():
-    """Create Spark session with optimal configuration"""
+    """Create Spark session with Delta Lake configuration"""
     master = os.getenv("SPARK_MASTER_URL", "local[*]")
     builder = (
         SparkSession.builder
-        .appName(os.getenv("SPARK_APP_NAME", "CHU - Silver Transformation"))
+        .appName(os.getenv("SPARK_APP_NAME", "CHU - Silver Transformation (Delta Lake)"))
         .config("spark.driver.memory", os.getenv("SPARK_DRIVER_MEMORY", "4g"))
         .config("spark.executor.memory", os.getenv("SPARK_EXECUTOR_MEMORY", "4g"))
         .config("spark.sql.adaptive.enabled", "true")
-        .config("spark.jars.packages", os.getenv("SPARK_PACKAGES", "org.postgresql:postgresql:42.7.3"))
+        .config("spark.sql.extensions", "io.delta.sql.DeltaSparkSessionExtension")
+        .config("spark.sql.catalog.spark_catalog", "org.apache.spark.sql.delta.catalog.DeltaCatalog")
+        .config("spark.jars.packages", os.getenv("SPARK_PACKAGES", "org.postgresql:postgresql:42.7.3,io.delta:delta-core_2.12:2.4.0"))
     )
     if master:
         builder = builder.master(master)
+
+    # Note: When using spark-submit with --packages, Delta is configured via packages parameter
     return builder.getOrCreate()
 
 
@@ -417,7 +406,7 @@ def main():
             "--subject",
             choices=[
                 "patient", "consultation", "etablissement_sante",
-                "satisfaction", "satisfaction_2019", "deces", "deces_2019",
+                "satisfaction", "satisfaction_2020", "deces", "deces_2019",
                 "references", "all"
             ],
             help="Run only a specific subject or all",
@@ -432,7 +421,7 @@ def main():
             transformer.results.append(transformer.transform_consultation())
         if subj in ("etablissement_sante", "all"):
             transformer.results.append(transformer.transform_etablissement_sante())
-        if subj in ("satisfaction", "satisfaction_2019", "all"):
+        if subj in ("satisfaction", "satisfaction_2020", "all"):
             transformer.results.append(transformer.transform_satisfaction())
         if subj in ("deces", "deces_2019", "all"):
             transformer.results.append(transformer.transform_deces())

@@ -1,0 +1,102 @@
+libelle_departement;num_departement;libelle_region;abv_region
+Ain;1;Auvergne-Rh�ne-Alpes;FR-ARA 
+Allier;3;Auvergne-Rh�ne-Alpes;FR-ARA 
+Ard�che;7;Auvergne-Rh�ne-Alpes;FR-ARA 
+Cantal;15;Auvergne-Rh�ne-Alpes;FR-ARA 
+Dr�me;26;Auvergne-Rh�ne-Alpes;FR-ARA 
+Is�re;38;Auvergne-Rh�ne-Alpes;FR-ARA 
+Loire;42;Auvergne-Rh�ne-Alpes;FR-ARA 
+Haute-Loire;43;Auvergne-Rh�ne-Alpes;FR-ARA 
+Puy-de-D�me;63;Auvergne-Rh�ne-Alpes;FR-ARA 
+Rh�ne;69;Auvergne-Rh�ne-Alpes;FR-ARA 
+Savoie;73;Auvergne-Rh�ne-Alpes;FR-ARA 
+Haute-Savoie;74;Auvergne-Rh�ne-Alpes;FR-ARA 
+C�te-d'Or;21;Bourgogne-Franche-Comt�;FR-BFC
+Doubs;25;Bourgogne-Franche-Comt�;FR-BFC
+Jura;39;Bourgogne-Franche-Comt�;FR-BFC
+Ni�vre;58;Bourgogne-Franche-Comt�;FR-BFC
+Haute-Sa�ne;70;Bourgogne-Franche-Comt�;FR-BFC
+Sa�ne-et-Loire;71;Bourgogne-Franche-Comt�;FR-BFC
+Yonne;89;Bourgogne-Franche-Comt�;FR-BFC
+Territoire de Belfort;90;Bourgogne-Franche-Comt�;FR-BFC
+C�tes-d'Armor;22;Bretagne;FR-BRE
+Finist�re;29;Bretagne;FR-BRE
+Ille-et-Vilaine;35;Bretagne;FR-BRE
+Morbihan;56;Bretagne;FR-BRE
+Cher;18;Centre-Val de Loire;FR-CVL
+Eure-et-Loir;28;Centre-Val de Loire;FR-CVL
+Indre;36;Centre-Val de Loire;FR-CVL
+Indre-et-Loire;37;Centre-Val de Loire;FR-CVL
+Loir-et-Cher;41;Centre-Val de Loire;FR-CVL
+Loiret;45;Centre-Val de Loire;FR-CVL
+Corse-du-Sud;2A;Corse;FR-20R
+Haute-Corse;2B;Corse;FR-20R
+Ardennes;8;Grand Est;FR-GES
+Aube;10;Grand Est;FR-GES
+Marne;51;Grand Est;FR-GES
+Haute-Marne;52;Grand Est;FR-GES
+Meurthe-et-Moselle;54;Grand Est;FR-GES
+Meuse;55;Grand Est;FR-GES
+Moselle;57;Grand Est;FR-GES
+Bas-Rhin;67;Grand Est;FR-GES
+Haut-Rhin;68;Grand Est;FR-GES
+Vosges;88;Grand Est;FR-GES
+Guadeloupe;971;Guadeloupe;FR-971 
+Guyane;973;Guyane;FR-973 
+Aisne;2;Hauts-de-France;FR-HDF
+Nord;59;Hauts-de-France;FR-HDF
+Oise;60;Hauts-de-France;FR-HDF
+Pas-de-Calais;62;Hauts-de-France;FR-HDF
+Somme;80;Hauts-de-France;FR-HDF
+Paris;75;Ile-de-France;FR-IDF
+Seine-et-Marne;77;Ile-de-France;FR-IDF
+Yvelines;78;Ile-de-France;FR-IDF
+Essonne;91;Ile-de-France;FR-IDF
+Hauts-de-Seine;92;Ile-de-France;FR-IDF
+Seine-St-Denis;93;Ile-de-France;FR-IDF
+Val-de-Marne;94;Ile-de-France;FR-IDF
+Val-D'Oise;95;Ile-de-France;FR-IDF
+La R�union;974;La R�union;FR-974 
+Martinique;972;Martinique;FR-972 
+Mayotte;976;Mayotte;FR-976 
+Calvados;14;Normandie;FR-NOR
+Eure;27;Normandie;FR-NOR
+Manche;50;Normandie;FR-NOR
+Orne;61;Normandie;FR-NOR
+Seine-Maritime;76;Normandie;FR-NOR
+Charente;16;Nouvelle-Aquitaine;FR-NAQ
+Charente-Maritime;17;Nouvelle-Aquitaine;FR-NAQ
+Corr�ze;19;Nouvelle-Aquitaine;FR-NAQ
+Creuse;23;Nouvelle-Aquitaine;FR-NAQ
+Dordogne;24;Nouvelle-Aquitaine;FR-NAQ
+Gironde;33;Nouvelle-Aquitaine;FR-NAQ
+Landes;40;Nouvelle-Aquitaine;FR-NAQ
+Lot-et-Garonne;47;Nouvelle-Aquitaine;FR-NAQ
+Pyr�n�es-Atlantiques;64;Nouvelle-Aquitaine;FR-NAQ
+Deux-S�vres;79;Nouvelle-Aquitaine;FR-NAQ
+Vienne;86;Nouvelle-Aquitaine;FR-NAQ
+Haute-Vienne;87;Nouvelle-Aquitaine;FR-NAQ
+Ari�ge;9;Occitanie;FR-OCC
+Aude;11;Occitanie;FR-OCC
+Aveyron;12;Occitanie;FR-OCC
+Gard;30;Occitanie;FR-OCC
+Haute-Garonne;31;Occitanie;FR-OCC
+Gers;32;Occitanie;FR-OCC
+H�rault;34;Occitanie;FR-OCC
+Lot;46;Occitanie;FR-OCC
+Loz�re;48;Occitanie;FR-OCC
+Hautes-Pyr�n�es;65;Occitanie;FR-OCC
+Pyr�n�es-Orientales;66;Occitanie;FR-OCC
+Tarn;81;Occitanie;FR-OCC
+Tarn-et-Garonne;82;Occitanie;FR-OCC
+Loire-Atlantique;44;Pays de la Loire;FR-PDL
+Maine-et-Loire;49;Pays de la Loire;FR-PDL
+Mayenne;53;Pays de la Loire;FR-PDL
+Sarthe;72;Pays de la Loire;FR-PDL
+Vend�e;85;Pays de la Loire;FR-PDL
+Alpes-de-Haute-Provence;4;Provence-Alpes-C�te d'Azur;FR-PAC
+Hautes-Alpes;5;Provence-Alpes-C�te d'Azur;FR-PAC
+Alpes-Maritimes;6;Provence-Alpes-C�te d'Azur;FR-PAC
+Bouches-du-Rh�ne;13;Provence-Alpes-C�te d'Azur;FR-PAC
+Var;83;Provence-Alpes-C�te d'Azur;FR-PAC
+Vaucluse;84;Provence-Alpes-C�te d'Azur;FR-PAC

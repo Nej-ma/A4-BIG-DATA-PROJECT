@@ -51,28 +51,38 @@ with DAG(
 
     job_dir = "/opt/spark-apps"
 
+    # Delta Lake packages for all jobs
+    delta_packages = "io.delta:delta-core_2.12:2.4.0,org.postgresql:postgresql:42.7.3"
+    spark_submit = f"/opt/spark/bin/spark-submit --packages {delta_packages}"
+
     t_bronze = BashOperator(
         task_id="bronze_extract",
-        bash_command=f"python {job_dir}/01_extract_bronze.py",
-        env={**base_env, "SPARK_APP_NAME": "CHU - Bronze Extraction"},
+        bash_command=f"{spark_submit} {job_dir}/01_extract_bronze.py",
+        env={**base_env, "SPARK_APP_NAME": "CHU - Bronze Extraction (Delta Lake)"},
     )
 
     t_silver = BashOperator(
         task_id="silver_transform",
-        bash_command=f"python {job_dir}/02_transform_silver.py",
-        env={**base_env, "SPARK_APP_NAME": "CHU - Silver Transformation"},
+        bash_command=f"{spark_submit} {job_dir}/02_transform_silver.py",
+        env={**base_env, "SPARK_APP_NAME": "CHU - Silver Transformation (Delta Lake)"},
     )
 
     t_gold = BashOperator(
         task_id="gold_transform",
-        bash_command=f"python {job_dir}/03_transform_gold.py",
-        env={**base_env, "SPARK_APP_NAME": "CHU - Gold Star Schema"},
+        bash_command=f"{spark_submit} {job_dir}/03_transform_gold.py",
+        env={**base_env, "SPARK_APP_NAME": "CHU - Gold Star Schema (Delta Lake)"},
     )
 
     t_bench = BashOperator(
         task_id="benchmarks",
-        bash_command=f"python {job_dir}/04_benchmarks.py",
-        env={**base_env, "SPARK_APP_NAME": "CHU - Performance Benchmarks"},
+        bash_command=f"{spark_submit} {job_dir}/04_benchmarks.py",
+        env={**base_env, "SPARK_APP_NAME": "CHU - Performance Benchmarks (Delta Lake)"},
     )
 
-    t_bronze >> t_silver >> t_gold >> t_bench
+    t_gold_views = BashOperator(
+        task_id="gold_views",
+        bash_command=f"{spark_submit} {job_dir}/06_create_gold_views.py",
+        env={**base_env, "SPARK_APP_NAME": "CHU - Gold Views for Superset (Delta Lake)"},
+    )
+
+    t_bronze >> t_silver >> t_gold >> t_gold_views >> t_bench

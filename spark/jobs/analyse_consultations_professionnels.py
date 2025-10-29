@@ -19,17 +19,22 @@ logger = logging.getLogger(__name__)
 
 
 def create_spark_session():
-    """Create Spark session"""
+    """Create Spark session with Delta Lake configuration"""
     master = os.getenv("SPARK_MASTER_URL", "local[*]")
     builder = (
         SparkSession.builder
-        .appName("CHU - Analyse Consultations Professionnels")
+        .appName("CHU - Analyse Consultations Professionnels (Delta Lake)")
         .config("spark.driver.memory", "4g")
         .config("spark.executor.memory", "4g")
         .config("spark.sql.adaptive.enabled", "true")
+        .config("spark.sql.extensions", "io.delta.sql.DeltaSparkSessionExtension")
+        .config("spark.sql.catalog.spark_catalog", "org.apache.spark.sql.delta.catalog.DeltaCatalog")
+        .config("spark.jars.packages", "org.postgresql:postgresql:42.7.3,io.delta:delta-core_2.12:2.4.0")
     )
     if master:
         builder = builder.master(master)
+
+    # Note: When using spark-submit with --packages, Delta is configured via packages parameter
     return builder.getOrCreate()
 
 
@@ -46,9 +51,9 @@ def main():
 
         # Load Gold tables
         logger.info("Loading Gold tables...")
-        fait_consultation = spark.read.parquet(f"{gold_base}/fait_consultation")
-        dim_professionnel = spark.read.parquet(f"{gold_base}/dim_professionnel")
-        dim_temps = spark.read.parquet(f"{gold_base}/dim_temps")
+        fait_consultation = spark.read.format("delta").load(f"{gold_base}/fait_consultation")
+        dim_professionnel = spark.read.format("delta").load(f"{gold_base}/dim_professionnel")
+        dim_temps = spark.read.format("delta").load(f"{gold_base}/dim_temps")
 
         fait_consultation.createOrReplaceTempView("fait_consultation")
         dim_professionnel.createOrReplaceTempView("dim_professionnel")
